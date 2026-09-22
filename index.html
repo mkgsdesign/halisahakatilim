@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#10291a">
+    <title>Bizim Ekip Halı Saha</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="page-bg"></div>
+
+
+
+    <main class="container">
+
+        <!-- HEADER -->
+        <header class="hero">
+            <div class="hero-glow hero-glow-1"></div>
+            <div class="hero-glow hero-glow-2"></div>
+
+            <div class="hero-icon">⚽</div>
+
+            <div class="hero-content">
+                <span class="eyebrow">HAFTALIK MAÇ SİSTEMİ</span>
+                <h1>Bizim Ekip Halı Saha</h1>
+             
+            </div>
+
+            <div class="hero-badge">
+                <span class="live-dot"></span>
+                AKTİF
+            </div>
+        </header>
+
+        <!-- MAÇ BİLGİSİ -->
+        <section class="card match-card">
+            <div class="section-heading">
+                <div class="section-icon green">📅</div>
+                <div>
+                    <span class="section-kicker">BU HAFTANIN MAÇI</span>
+                    <h2>Maç Bilgileri</h2>
+                </div>
+            </div>
+
+            <div class="match-grid">
+                <div class="info-box">
+                    <span class="info-icon">📅</span>
+                    <div>
+                        <small>Gün</small>
+                        <strong>Her Salı</strong>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <span class="info-icon">⏰</span>
+                    <div>
+                        <small>Saat</small>
+                        <strong>21:00 - 22:00</strong>
+                    </div>
+                </div>
+
+                <div class="info-box">
+                    <span class="info-icon">💰</span>
+                    <div>
+                        <small>Maç Ücreti</small>
+                        <strong>150 TL</strong>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ÖDEME -->
+        <section class="card payment-card">
+            <div class="section-heading">
+                <div class="section-icon gold">💳</div>
+                <div>
+                    <span class="section-kicker">ÖDEME BİLGİSİ</span>
+                    <h2>Maç Ücreti</h2>
+                </div>
+            </div>
+
+            <div class="payment-note">
+                Ödeme yaptıktan sonra kendi oyuncu panelinden <b>“Ödemeyi Yaptım”</b> butonuna bas.
+            </div>
+
+            <div class="iban-box">
+                <div class="iban-label">
+                    <span>₺</span>
+                    <div>
+                        <small>ÖDEME HESABI</small>
+                        <strong>IBAN</strong>
+                    </div>
+                </div>
+
+                <div class="iban-value">
+                <strong id="ibanNumber" data-iban="TR00 5000 0000 0000 0000 0000 00">
+    •••• •••• •••• •••• ••••
+</strong>
+                    <button type="button" id="copyIbanButton" class="copy-button">
+                        📋 <span>Kopyala</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- DURUM -->
+        <section class="card summary-card">
+            <div class="section-heading compact">
+                <div class="section-icon blue">📊</div>
+                <div>
+                    <span class="section-kicker">CANLI ÖZET</span>
+                    <h2>Maç Durumu</h2>
+                </div>
+            </div>
+
+            <div class="summary-grid">
+                <div class="summary-item coming">
+                    <div class="summary-top">
+                        <span class="summary-icon">✓</span>
+                        <span class="summary-number" id="comingCount">0</span>
+                    </div>
+                    <span class="summary-label">Geliyor</span>
+                </div>
+
+                <div class="summary-item not-coming">
+                    <div class="summary-top">
+                        <span class="summary-icon">×</span>
+                        <span class="summary-number" id="notComingCount">0</span>
+                    </div>
+                    <span class="summary-label">Gelemiyor</span>
+                </div>
+
+                <div class="summary-item waiting">
+                    <div class="summary-top">
+                        <span class="summary-icon">?</span>
+                        <span class="summary-number" id="waitingCount">17</span>
+                    </div>
+                    <span class="summary-label">Cevap Yok</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- OYUNCU SEÇ -->
+        <section class="card select-card">
+            <div class="section-heading">
+                <div class="section-icon dark">👤</div>
+                <div>
+                    <span class="section-kicker">KATILIM İŞLEMİ</span>
+                    <h2>Oyuncunu Seç</h2>
+                </div>
+            </div>
+
+            <label for="playerSelect">Oyuncu</label>
+
+            <div class="select-wrap">
+                <select id="playerSelect">
+                    <option value="">-- İsmini Seç --</option>
+                </select>
+            </div>
+
+            <div class="select-hint">
+                <span>💡</span>
+                <span>İsmini seçtikten sonra katılım veya ödeme durumunu değiştirebilirsin.</span>
+            </div>
+        </section>
+
+        <!-- OYUNCU PANELİ -->
+        <section id="playerPanel" class="card player-panel hidden">
+
+            <div class="player-header">
+                <div class="player-avatar">👤</div>
+                <div class="player-name">
+                    <span>SEÇİLEN OYUNCU</span>
+                    <h2 id="selectedPlayerName">-</h2>
+                </div>
+                <div class="player-online">
+                    <span></span>
+                    AKTİF
+                </div>
+            </div>
+
+            <div class="status-box">
+                <div>
+                    <span class="status-label">MEVCUT KATILIM DURUMU</span>
+                    <strong id="selectedPlayerStatus" class="status-waiting">⚪ Cevap vermedi</strong>
+                </div>
+            </div>
+
+            <div class="action-title">Katılımını bildir</div>
+
+            <div class="action-buttons">
+                <button type="button" id="comingButton" class="action-button coming-button">
+                    <span class="action-icon">✓</span>
+                    <span class="action-text">
+                        <strong>Geliyorum</strong>
+                        <small>Maça katılacağım</small>
+                    </span>
+                </button>
+
+                <button type="button" id="notComingButton" class="action-button not-coming-button">
+                    <span class="action-icon">×</span>
+                    <span class="action-text">
+                        <strong>Gelemiyorum</strong>
+                        <small>Maça katılmayacağım</small>
+                    </span>
+                </button>
+            </div>
+
+            <div class="payment-action">
+                <div class="payment-info">
+                    <span class="payment-status-icon">💳</span>
+                    <div>
+                        <span class="status-label">ÖDEME DURUMU</span>
+                        <p id="selectedPaymentStatus">Henüz ödeme bildirilmedi.</p>
+                    </div>
+                </div>
+
+                <button type="button" id="paymentButton" class="payment-button">
+                    💳 Ödemeyi Yaptım
+                </button>
+            </div>
+        </section>
+
+        <!-- SEÇİM YOK -->
+        <div id="selectMessage" class="empty-state">
+            <div class="empty-icon">👆</div>
+            <h3>Önce ismini seç</h3>
+            <p>Katılım veya ödeme durumunu değiştirmek için yukarıdaki listeden ismini seç.</p>
+        </div>
+
+        <!-- LOADING -->
+        <div id="loading" class="loading">
+            <span class="spinner"></span>
+            <span>Sistem hazırlanıyor...</span>
+        </div>
+
+        <!-- YENİ HAFTA -->
+        <button type="button" id="clearButton" class="clear-button">
+            <span>🗑️</span>
+            <span>Yeni Haftayı Başlat</span>
+        </button>
+
+
+        <div class="last-update">
+            <span class="update-dot"></span>
+            <span id="lastUpdate">Son kontrol bekleniyor...</span>
+        </div>
+
+</button>
+        <footer>— MKG web development —</footer>
+    </main>
+    <button id="playSoundButton" class="play-sound-button">
+        ▶️
+    </button>
+
+
+    <script src="script.js"></script>
+</body>
+
+</html>
