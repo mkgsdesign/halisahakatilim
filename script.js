@@ -1,5 +1,20 @@
+/* =========================================
+   BİZİM EKİP | HALI SAHA
+   GOOGLE SHEETS + APPS SCRIPT
+========================================= */
+
+
+/* =========================================
+   AYARLAR
+========================================= */
+
 const SCRIPT_URL =
     "https://script.google.com/macros/s/AKfycbw1032xl6q66hrmTwbD5WYnehlFFNZGwtxq9wwjSWgpGuTitiaGjke9sRJXLR8UL4hPgw/exec";
+
+
+const MAX_PLAYERS = 14;
+
+const ADMIN_PASSWORD = "1234";
 
 
 const players = [
@@ -19,37 +34,111 @@ const players = [
     "Balcı",
     "Sefer",
     "Aşık",
-    "Cio" ,
+    "Cio",
     "Tahsin",
-    "kemal gönen",
+    "kemal gönen"
 
 ];
 
+
+/* =========================================
+   POZİSYONLAR
+========================================= */
+
+const positions = [
+
+    "Kaleci",
+    "Defans",
+    "Orta Saha",
+    "Forvet"
+
+];
+
+
+/* =========================================
+   DURUM
+========================================= */
 
 let playerStatuses = {};
 
 let playerPayments = {};
 
-let clearingWeek = false;
+let playerProfiles = {};
 
 let selectedPlayer = "";
+
+let clearingWeek = false;
 
 let dataLoading = false;
 
 let actionInProgress = false;
 
 
-players.forEach(function (name) {
+/* =========================================
+   SESLER
+========================================= */
 
-    playerStatuses[name] = "";
+let mainAudio = null;
 
-    playerPayments[name] = "";
+let katilimAudio = null;
 
-});
+let haftayaBeklerizAudio = null;
+
+let audioStarted = false;
 
 
 /* =========================================
-   OYUNCU SEÇİMİ
+   SAYFA BAŞLANGICI
+========================================= */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    initializeApp
+);
+
+
+/* =========================================
+   INIT
+========================================= */
+
+function initializeApp() {
+
+    initializeState();
+
+    createPlayerSelect();
+
+    setupButtons();
+
+    setupAudio();
+
+    loadProfiles();
+
+    loadData();
+
+}
+
+
+/* =========================================
+   STATE
+========================================= */
+
+function initializeState() {
+
+    players.forEach(name => {
+
+        playerStatuses[name] =
+            "";
+
+        playerPayments[name] =
+            "";
+
+    });
+
+}
+
+
+/* =========================================
+   OYUNCU SELECT
 ========================================= */
 
 function createPlayerSelect() {
@@ -59,37 +148,43 @@ function createPlayerSelect() {
             "playerSelect"
         );
 
+    if (!select) {
+        return;
+    }
 
-    players.forEach(function (name) {
+
+    select.innerHTML = "";
+
+    const defaultOption =
+        document.createElement("option");
+
+    defaultOption.value = "";
+
+    defaultOption.textContent =
+        "Oyuncunu seç...";
+
+    select.appendChild(
+        defaultOption
+    );
+
+
+    players.forEach(name => {
 
         const option =
-            document.createElement(
-                "option"
-            );
+            document.createElement("option");
 
-        option.value =
-            name;
+        option.value = name;
 
-        option.textContent =
-            name;
+        option.textContent = name;
 
-        select.appendChild(
-            option
-        );
+        select.appendChild(option);
 
     });
 
 
     select.addEventListener(
         "change",
-        function () {
-
-            selectedPlayer =
-                this.value;
-
-            showSelectedPlayer();
-
-        }
+        updateSelectedPlayer
     );
 
 }
@@ -99,19 +194,32 @@ function createPlayerSelect() {
    SEÇİLEN OYUNCU
 ========================================= */
 
+function updateSelectedPlayer() {
+
+    const select =
+        document.getElementById(
+            "playerSelect"
+        );
+
+    selectedPlayer =
+        select.value;
+
+
+    showSelectedPlayer();
+
+}
+
+
+/* =========================================
+   OYUNCU PANELİ
+========================================= */
+
 function showSelectedPlayer() {
 
     const panel =
         document.getElementById(
-            "playerPanel"
+            "selectedPlayerPanel"
         );
-
-
-    const message =
-        document.getElementById(
-            "selectMessage"
-        );
-
 
     const nameElement =
         document.getElementById(
@@ -125,10 +233,6 @@ function showSelectedPlayer() {
             "hidden"
         );
 
-        message.classList.remove(
-            "hidden"
-        );
-
         return;
 
     }
@@ -138,25 +242,21 @@ function showSelectedPlayer() {
         "hidden"
     );
 
-    message.classList.add(
-        "hidden"
-    );
-
 
     nameElement.textContent =
         selectedPlayer;
 
 
-    updateSelectedPlayer();
+    updateButtonStates();
 
 }
 
 
 /* =========================================
-   SEÇİLEN OYUNCU BİLGİSİ
+   BUTON DURUMLARI
 ========================================= */
 
-function updateSelectedPlayer() {
+function updateButtonStates() {
 
     if (!selectedPlayer) {
         return;
@@ -169,35 +269,15 @@ function updateSelectedPlayer() {
         ] || "";
 
 
-    const payment =
-        playerPayments[
-            selectedPlayer
-        ] || "";
-
-
-    const statusElement =
-        document.getElementById(
-            "selectedPlayerStatus"
-        );
-
-
-    const paymentStatus =
-        document.getElementById(
-            "selectedPaymentStatus"
-        );
-
-
     const comingButton =
         document.getElementById(
             "comingButton"
         );
 
-
     const notComingButton =
         document.getElementById(
             "notComingButton"
         );
-
 
     const paymentButton =
         document.getElementById(
@@ -205,82 +285,46 @@ function updateSelectedPlayer() {
         );
 
 
-    comingButton.classList.remove(
-        "selected"
-    );
-
-    notComingButton.classList.remove(
-        "selected"
-    );
-
-
-    if (
+    comingButton.classList.toggle(
+        "active",
         status === "Geliyorum"
-    ) {
-
-        statusElement.textContent =
-            "🟢 Geliyorum";
-
-        statusElement.className =
-            "status-coming";
-
-        comingButton.classList.add(
-            "selected"
-        );
-
-    }
-
-    else if (
-        status === "Gelemiyorum"
-    ) {
-
-        statusElement.textContent =
-            "🔴 Gelemiyorum";
-
-        statusElement.className =
-            "status-not-coming";
-
-        notComingButton.classList.add(
-            "selected"
-        );
-
-    }
-
-    else {
-
-        statusElement.textContent =
-            "⚪ Cevap vermedi";
-
-        statusElement.className =
-            "status-waiting";
-
-    }
-
-
-    paymentButton.classList.remove(
-        "paid"
     );
 
 
+    notComingButton.classList.toggle(
+        "active",
+        status === "Gelemiyorum"
+    );
+
+
+    const comingCount =
+        Object.values(
+            playerStatuses
+        )
+        .filter(
+            value =>
+                value === "Geliyorum"
+        )
+        .length;
+
+
+    /*
+       14 kişi dolduysa:
+       zaten gelen kişi kendisini
+       görebilmeye devam eder.
+    */
+
+    const full =
+        comingCount >= MAX_PLAYERS;
+
+
     if (
-        payment === "Ödendi"
+        full &&
+        status !== "Geliyorum"
     ) {
 
-        paymentStatus.textContent =
-            "🟢 Ödeme yapıldı.";
-
-        paymentStatus.className =
-            "payment-done";
-
-
-        paymentButton.textContent =
-            "🟢 Ödeme Yapıldı";
-
-
-        paymentButton.classList.add(
-            "paid"
-        );
-
+        comingButton.disabled =
+            true;
 
         paymentButton.disabled =
             true;
@@ -289,19 +333,36 @@ function updateSelectedPlayer() {
 
     else {
 
-        paymentStatus.textContent =
-            "Henüz ödeme bildirilmedi.";
-
-        paymentStatus.className =
-            "";
-
-
-        paymentButton.textContent =
-            "💳 Ödemeyi Yaptım";
-
+        comingButton.disabled =
+            false;
 
         paymentButton.disabled =
             false;
+
+    }
+
+
+    /*
+       Ödenmişse tekrar ödeme yapmasın.
+    */
+
+    if (
+        playerPayments[selectedPlayer] ===
+        "Ödendi"
+    ) {
+
+        paymentButton.disabled =
+            true;
+
+        paymentButton.innerHTML =
+            "✅ Ödeme Alındı";
+
+    }
+
+    else {
+
+        paymentButton.innerHTML =
+            "💳 Ödemeyi Yaptım <small>150 TL</small>";
 
     }
 
@@ -309,20 +370,12 @@ function updateSelectedPlayer() {
 
 
 /* =========================================
-   GOOGLE SHEETS VERİSİNİ AL
+   DATA YÜKLE
 ========================================= */
 
 function loadData() {
 
-    /*
-       Eğer zaten veri çekiliyorsa
-       ikinci isteği gönderme.
-    */
-
-    if (
-        clearingWeek ||
-        dataLoading
-    ) {
+    if (dataLoading) {
         return;
     }
 
@@ -335,66 +388,41 @@ function loadData() {
         Date.now();
 
 
-    let finished = false;
-
-
-    function finishLoading() {
-
-        if (finished) {
-            return;
-        }
-
-        finished = true;
-
-        dataLoading = false;
-
-        delete window[
-            callbackName
-        ];
-
-    }
-
-
     window[callbackName] =
-        function (data) {
-
-            if (clearingWeek) {
-
-                finishLoading();
-
-                return;
-
-            }
-
+        function(data) {
 
             try {
 
                 updatePlayers(data);
+
+                updateCounters();
+
+                updateTeams();
+
+                hideLoading();
+
+                updateLastUpdate();
 
             }
 
             catch (error) {
 
                 console.error(
-                    "Veri işleme hatası:",
                     error
                 );
 
+                showConnectionError();
+
             }
 
+            finally {
 
-            finishLoading();
+                dataLoading =
+                    false;
 
-
-            const oldScript =
-                document.getElementById(
+                delete window[
                     callbackName
-                );
-
-
-            if (oldScript) {
-
-                oldScript.remove();
+                ];
 
             }
 
@@ -407,29 +435,19 @@ function loadData() {
         );
 
 
-    script.id =
-        callbackName;
-
-
     script.src =
         SCRIPT_URL +
         "?callback=" +
         callbackName +
-        "&t=" +
+        "&_=" +
         Date.now();
 
 
     script.onerror =
-        function () {
+        function() {
 
-            console.error(
-                "Google Sheets bağlantısı kurulamadı."
-            );
-
-
-            finishLoading();
-
-            script.remove();
+            dataLoading =
+                false;
 
             showConnectionError();
 
@@ -440,39 +458,16 @@ function loadData() {
         script
     );
 
-
-    /*
-       Bağlantı çok uzun sürerse
-       sistemi kilitleme.
-    */
-
-    setTimeout(
-        function () {
-
-            if (!finished) {
-
-                finishLoading();
-
-                if (script) {
-                    script.remove();
-                }
-
-            }
-
-        },
-        5000
-    );
-
 }
 
 
 /* =========================================
-   VERİLERİ GÜNCELLE
+   DATA İŞLE
 ========================================= */
 
 function updatePlayers(data) {
 
-    if (clearingWeek) {
+    if (!Array.isArray(data)) {
         return;
     }
 
@@ -483,22 +478,17 @@ function updatePlayers(data) {
         i++
     ) {
 
+        const row =
+            data[i];
+
+
+        if (!row || !row[0]) {
+            continue;
+        }
+
+
         const name =
-            String(
-                data[i][0] || ""
-            ).trim();
-
-
-        const status =
-            String(
-                data[i][1] || ""
-            ).trim();
-
-
-        const payment =
-            String(
-                data[i][3] || ""
-            ).trim();
+            String(row[0]).trim();
 
 
         if (
@@ -509,418 +499,93 @@ function updatePlayers(data) {
 
 
         playerStatuses[name] =
-            status;
+            String(
+                row[1] || ""
+            ).trim();
 
 
         playerPayments[name] =
-            payment;
+            String(
+                row[3] || ""
+            ).trim();
 
     }
 
 
-    updateCounters();
-
-
-    updateSelectedPlayer();
-
-
-    const loading =
-        document.getElementById(
-            "loading"
-        );
-
-
-    loading.style.display =
-        "none";
-
-
-    const now =
-        new Date();
-
-
-    document.getElementById(
-        "lastUpdate"
-    ).textContent =
-        "Son kontrol: " +
-        now.toLocaleTimeString(
-            "tr-TR"
-        );
+    updateSelectedPlayerUI();
 
 }
 
 
 /* =========================================
-   GELİYORUM / GELMİYORUM
+   SEÇİLEN OYUNCUYU GÜNCELLE
 ========================================= */
 
-function setStatus(
-    name,
-    status
-) {
+function updateSelectedPlayerUI() {
 
-    if (
-        clearingWeek ||
-        !name ||
-        actionInProgress
-    ) {
+    if (!selectedPlayer) {
         return;
     }
 
 
-    actionInProgress = true;
-    if (status === "Geliyorum") {
+    const select =
+        document.getElementById(
+            "playerSelect"
+        );
 
-        const audio =
-            new Audio("katilim.mp3");
 
-        audio.play()
-            .catch(function (error) {
+    if (
+        select.value !==
+        selectedPlayer
+    ) {
 
-                console.error(
-                    "Ses çalınamadı:",
-                    error
-                );
-
-            });
+        select.value =
+            selectedPlayer;
 
     }
 
-    else if (status === "Gelemiyorum") {
 
-        const audio =
-            new Audio("haftaya-bekleriz.mp3");
-
-        audio.play()
-            .catch(function (error) {
-
-                console.error(
-                    "Ses çalınamadı:",
-                    error
-                );
-
-            });
-
-    }
-
-    /*
-       Önce ekranda hemen göster.
-    */
-
-    playerStatuses[name] =
-        status;
-
-
-    updateSelectedPlayer();
-
-    updateCounters();
-
-
-    const comingButton =
-        document.getElementById(
-            "comingButton"
-        );
-
-
-    const notComingButton =
-        document.getElementById(
-            "notComingButton"
-        );
-
-
-    comingButton.disabled =
-        true;
-
-    notComingButton.disabled =
-        true;
-
-
-    fetch(
-        SCRIPT_URL,
-        {
-
-            method: "POST",
-
-            mode: "no-cors",
-
-            headers: {
-
-                "Content-Type":
-                    "text/plain;charset=utf-8"
-
-            },
-
-            body:
-                JSON.stringify({
-
-                    isim:
-                        name,
-
-                    durum:
-                        status
-
-                })
-
-        }
-    )
-    .then(function () {
-
-        /*
-           Google Sheets'e kayıt sonrası
-           bir kez kontrol et.
-        */
-
-        setTimeout(
-            function () {
-
-                if (
-                    !clearingWeek
-                ) {
-
-                    loadData();
-
-                }
-
-            },
-            700
-        );
-
-    })
-    .catch(function (error) {
-
-        console.error(
-            "Katılım kayıt hatası:",
-            error
-        );
-
-    })
-    .finally(function () {
-
-        setTimeout(
-            function () {
-
-                actionInProgress =
-                    false;
-
-
-                comingButton.disabled =
-                    false;
-
-
-                notComingButton.disabled =
-                    false;
-
-            },
-            900
-        );
-
-    });
+    updateButtonStates();
 
 }
 
 
 /* =========================================
-   ÖDEME
-========================================= */
-
-function setPayment(name) {
-
-    if (
-        clearingWeek ||
-        !name ||
-        actionInProgress
-    ) {
-        return;
-    }
-
-
-    const paymentButton =
-        document.getElementById(
-            "paymentButton"
-        );
-
-
-    const confirmed =
-        confirm(
-            "💳 150 TL ödeme yaptığınızı onaylıyor musunuz?\n\n" +
-            "Ödeme bildirildiğinde otomatik olarak 'Geliyorum' seçilecektir."
-        );
-
-
-    if (!confirmed) {
-        return;
-    }
-
-
-    actionInProgress =
-        true;
-
-
-    paymentButton.disabled =
-        true;
-
-
-    paymentButton.textContent =
-        "⏳ Kaydediliyor...";
-
-
-    /*
-       Ödeme yapıldığında backend
-       hem Ödendi hem Geliyorum
-       olarak kaydedecek.
-    */
-
-    fetch(
-        SCRIPT_URL,
-        {
-
-            method: "POST",
-
-            mode: "no-cors",
-
-            headers: {
-
-                "Content-Type":
-                    "text/plain;charset=utf-8"
-
-            },
-
-            body:
-                JSON.stringify({
-
-                    action:
-                        "payment",
-
-                    isim:
-                        name
-
-                })
-
-        }
-    )
-    .then(function () {
-
-        /*
-           Ekranda hemen güncelle.
-        */
-
-        playerPayments[name] =
-            "Ödendi";
-
-
-        playerStatuses[name] =
-            "Geliyorum";
-
-
-        updateCounters();
-
-        updateSelectedPlayer();
-
-
-        /*
-           Google Sheets'ten bir kez
-           tekrar kontrol et.
-        */
-
-        setTimeout(
-            function () {
-
-                if (
-                    !clearingWeek
-                ) {
-
-                    loadData();
-
-                }
-
-            },
-            700
-        );
-
-    })
-    .catch(function (error) {
-
-        console.error(
-            "Ödeme kayıt hatası:",
-            error
-        );
-
-
-        paymentButton.disabled =
-            false;
-
-
-        paymentButton.textContent =
-            "💳 Ödemeyi Yaptım";
-
-    })
-    .finally(function () {
-
-        setTimeout(
-            function () {
-
-                actionInProgress =
-                    false;
-
-            },
-            900
-        );
-
-    });
-
-}
-
-
-
-/* =========================================
-   SAYAÇLAR
+   SAYILAR
 ========================================= */
 
 function updateCounters() {
 
-    let coming = 0;
-
-    let notComing = 0;
-
-    let waiting = 0;
-
-
-    players.forEach(
-        function (name) {
-
-            const status =
-                playerStatuses[name];
+    const statuses =
+        Object.values(
+            playerStatuses
+        );
 
 
-            if (
+    const coming =
+        statuses.filter(
+            status =>
                 status === "Geliyorum"
-            ) {
+        ).length;
 
-                coming++;
 
-            }
-
-            else if (
+    const notComing =
+        statuses.filter(
+            status =>
                 status === "Gelemiyorum"
-            ) {
+        ).length;
 
-                notComing++;
 
-            }
-
-            else {
-
-                waiting++;
-
-            }
-
-        }
-    );
+    const waiting =
+        players.length -
+        coming -
+        notComing;
 
 
     document.getElementById(
         "comingCount"
     ).textContent =
-        coming;
+        `${coming}/${MAX_PLAYERS}`;
 
 
     document.getElementById(
@@ -934,6 +599,324 @@ function updateCounters() {
     ).textContent =
         waiting;
 
+
+    const fullElement =
+        document.getElementById(
+            "capacityFull"
+        );
+
+
+    if (
+        coming >= MAX_PLAYERS
+    ) {
+
+        fullElement.classList.remove(
+            "hidden"
+        );
+
+    }
+
+    else {
+
+        fullElement.classList.add(
+            "hidden"
+        );
+
+    }
+
+
+    updateButtonStates();
+
+}
+
+
+/* =========================================
+   DURUM DEĞİŞTİR
+========================================= */
+
+function setStatus(status) {
+
+    if (!selectedPlayer) {
+
+        alert(
+            "Önce oyuncunu seç."
+        );
+
+        return;
+
+    }
+
+
+    if (actionInProgress) {
+        return;
+    }
+
+
+    /*
+       Ön kontrol
+    */
+
+    const coming =
+        Object.values(
+            playerStatuses
+        )
+        .filter(
+            value =>
+                value === "Geliyorum"
+        )
+        .length;
+
+
+    const oldStatus =
+        playerStatuses[
+            selectedPlayer
+        ] || "";
+
+
+    if (
+        status === "Geliyorum" &&
+        oldStatus !== "Geliyorum" &&
+        coming >= MAX_PLAYERS
+    ) {
+
+        alert(
+            "14 kişilik kontenjan dolu."
+        );
+
+        return;
+
+    }
+
+
+    actionInProgress = true;
+
+
+    /*
+       UI'ı anında güncelle
+    */
+
+    playerStatuses[
+        selectedPlayer
+    ] = status;
+
+
+    updateCounters();
+
+
+    /*
+       Ses
+    */
+
+    if (
+        status === "Geliyorum"
+    ) {
+
+        playKatilimSound();
+
+    }
+
+    else if (
+        status === "Gelemiyorum"
+    ) {
+
+        playHaftayaBeklerizSound();
+
+    }
+
+
+    const payload = {
+
+        isim:
+            selectedPlayer,
+
+        durum:
+            status
+
+    };
+
+
+    sendPost(
+        payload,
+        function() {
+
+            setTimeout(
+                loadData,
+                400
+            );
+
+            actionInProgress =
+                false;
+
+        }
+    );
+
+}
+
+
+/* =========================================
+   ÖDEME
+========================================= */
+
+function setPayment() {
+
+    if (!selectedPlayer) {
+
+        alert(
+            "Önce oyuncunu seç."
+        );
+
+        return;
+
+    }
+
+
+    if (actionInProgress) {
+        return;
+    }
+
+
+    const coming =
+        Object.values(
+            playerStatuses
+        )
+        .filter(
+            value =>
+                value === "Geliyorum"
+        ).length;
+
+
+    const oldStatus =
+        playerStatuses[
+            selectedPlayer
+        ] || "";
+
+
+    if (
+        oldStatus !== "Geliyorum" &&
+        coming >= MAX_PLAYERS
+    ) {
+
+        alert(
+            "14 kişilik kontenjan dolu."
+        );
+
+        return;
+
+    }
+
+
+    actionInProgress = true;
+
+
+    /*
+       Ödeme otomatik olarak
+       Geliyorum yapıyor.
+    */
+
+    playerStatuses[
+        selectedPlayer
+    ] = "Geliyorum";
+
+
+    playerPayments[
+        selectedPlayer
+    ] = "Ödendi";
+
+
+    updateCounters();
+
+
+    /*
+       Katılım sesi
+    */
+
+    playKatilimSound();
+
+
+    sendPost(
+
+        {
+            action:
+                "payment",
+
+            isim:
+                selectedPlayer
+
+        },
+
+        function() {
+
+            setTimeout(
+                loadData,
+                400
+            );
+
+            actionInProgress =
+                false;
+
+        }
+
+    );
+
+}
+
+
+/* =========================================
+   POST GÖNDER
+========================================= */
+
+function sendPost(
+    payload,
+    callback
+) {
+
+    fetch(
+        SCRIPT_URL,
+        {
+
+            method:
+                "POST",
+
+            mode:
+                "no-cors",
+
+            headers:
+                {
+                    "Content-Type":
+                        "text/plain;charset=utf-8"
+                },
+
+            body:
+                JSON.stringify(
+                    payload
+                )
+
+        }
+    )
+    .then(
+        () => {
+
+            if (callback) {
+                callback();
+            }
+
+        }
+    )
+    .catch(
+        error => {
+
+            console.error(
+                "POST Hatası:",
+                error
+            );
+
+            if (callback) {
+                callback();
+            }
+
+        }
+    );
+
 }
 
 
@@ -943,227 +926,1523 @@ function updateCounters() {
 
 function clearWeek() {
 
-    const confirmed =
-        confirm(
-            "⚠️ DİKKAT!\n\n" +
-            "Tüm katılım ve ödeme bilgileri " +
-            "silinecek.\n\n" +
-            "İsimler silinmeyecek.\n\n" +
-            "Devam etmek istiyor musunuz?"
-        );
-
-
-    if (!confirmed) {
+    if (clearingWeek) {
         return;
     }
 
 
-    clearingWeek =
-        true;
+    const password =
+        prompt(
+            "Yönetici şifresini gir:"
+        );
 
 
-    actionInProgress =
-        true;
+    if (password === null) {
+        return;
+    }
 
 
-    const clearButton =
+    if (
+        password !==
+        ADMIN_PASSWORD
+    ) {
+
+        alert(
+            "Hatalı şifre!"
+        );
+
+        return;
+
+    }
+
+
+    const confirmClear =
+        confirm(
+            "Yeni haftayı başlatmak istediğine emin misin?\n\nKatılım ve ödeme bilgileri temizlenecek."
+        );
+
+
+    if (!confirmClear) {
+        return;
+    }
+
+
+    clearingWeek = true;
+
+
+    const button =
         document.getElementById(
             "clearButton"
         );
 
 
-    clearButton.disabled =
+    button.disabled =
         true;
 
-
-    clearButton.textContent =
-        "⏳ Yeni hafta hazırlanıyor...";
-
-
-    players.forEach(
-        function (name) {
-
-            playerStatuses[name] =
-                "";
-
-            playerPayments[name] =
-                "";
-
-        }
-    );
+    button.textContent =
+        "⏳ Hafta temizleniyor...";
 
 
-    updateCounters();
+    sendPost(
 
-    updateSelectedPlayer();
-
-
-    fetch(
-        SCRIPT_URL,
         {
+            action:
+                "clear",
 
-            method: "POST",
+            password:
+                password
 
-            mode: "no-cors",
+        },
 
-            headers: {
+        function() {
 
-                "Content-Type":
-                    "text/plain;charset=utf-8"
+            players.forEach(
+                name => {
 
-            },
+                    playerStatuses[name] =
+                        "";
 
-            body:
-                JSON.stringify({
+                    playerPayments[name] =
+                        "";
 
-                    action:
-                        "clear"
+                }
+            );
 
-                })
+
+            selectedPlayer =
+                "";
+
+
+            document.getElementById(
+                "playerSelect"
+            ).value =
+                "";
+
+
+            showSelectedPlayer();
+
+            updateCounters();
+
+            updateTeams();
+
+
+            button.disabled =
+                false;
+
+            button.textContent =
+                "🔄 Yeni Haftayı Başlat";
+
+
+            clearingWeek =
+                false;
+
+
+            setTimeout(
+                loadData,
+                500
+            );
+
+            alert(
+                "Yeni hafta başlatıldı."
+            );
 
         }
-    )
-    .then(function () {
 
-        setTimeout(
-            function () {
-
-                clearingWeek =
-                    false;
-
-                actionInProgress =
-                    false;
-
-
-                clearButton.disabled =
-                    false;
-
-
-                clearButton.textContent =
-                    "🗑️ Yeni Haftayı Başlat";
-
-
-                loadData();
-
-            },
-            800
-        );
-
-
-        alert(
-            "✅ Yeni hafta başlatıldı!"
-        );
-
-    })
-    .catch(function (error) {
-
-        console.error(
-            "Temizleme hatası:",
-            error
-        );
-
-
-        clearingWeek =
-            false;
-
-        actionInProgress =
-            false;
-
-
-        clearButton.disabled =
-            false;
-
-
-        clearButton.textContent =
-            "🗑️ Yeni Haftayı Başlat";
-
-
-        alert(
-            "❌ Liste temizlenirken hata oluştu."
-        );
-
-    });
+    );
 
 }
 
 
 /* =========================================
-   BAĞLANTI HATASI
+   PROFİLLERİ YÜKLE
 ========================================= */
 
-function showConnectionError() {
+function loadProfiles() {
 
-    const loading =
-        document.getElementById(
-            "loading"
+    const callbackName =
+        "profileCallback_" +
+        Date.now();
+
+
+    window[callbackName] =
+        function(data) {
+
+            try {
+
+                if (
+                    Array.isArray(data)
+                ) {
+
+                    playerProfiles =
+                        {};
+
+                    data.forEach(
+                        profile => {
+
+                            playerProfiles[
+                                profile.isim
+                            ] = {
+
+                                mevki:
+                                    profile.mevki ||
+                                    "Orta Saha",
+
+                                puan:
+                                    Number(
+                                        profile.puan
+                                    ) || 5
+
+                            };
+
+                        }
+                    );
+
+
+                    renderAdminPlayers();
+
+                    updateTeams();
+
+                }
+
+            }
+
+            catch (error) {
+
+                console.error(
+                    error
+                );
+
+            }
+
+            finally {
+
+                delete window[
+                    callbackName
+                ];
+
+            }
+
+        };
+
+
+    const script =
+        document.createElement(
+            "script"
         );
 
 
-    loading.innerHTML = `
-        <div class="error-message">
-            ⚠️ Google Sheets bağlantısı kurulamadı.
+    script.src =
+        SCRIPT_URL +
+        "?action=profiles" +
+        "&callback=" +
+        callbackName +
+        "&_=" +
+        Date.now();
+
+
+    document.body.appendChild(
+        script
+    );
+
+}
+
+
+/* =========================================
+   ADMIN PANEL
+========================================= */
+
+function openAdminPanel() {
+
+    const password =
+        prompt(
+            "Yönetici şifresini gir:"
+        );
+
+
+    if (password === null) {
+        return;
+    }
+
+
+    if (
+        password !==
+        ADMIN_PASSWORD
+    ) {
+
+        alert(
+            "Hatalı şifre!"
+        );
+
+        return;
+
+    }
+
+
+    document.getElementById(
+        "adminPanel"
+    )
+    .classList.remove(
+        "hidden"
+    );
+
+
+    renderAdminPlayers();
+
+}
+
+
+function closeAdminPanel() {
+
+    document.getElementById(
+        "adminPanel"
+    )
+    .classList.add(
+        "hidden"
+    );
+
+}
+
+
+/* =========================================
+   ADMIN OYUNCULAR
+========================================= */
+
+function renderAdminPlayers() {
+
+    const container =
+        document.getElementById(
+            "adminPlayers"
+        );
+
+
+    if (!container) {
+        return;
+    }
+
+
+    container.innerHTML = "";
+
+
+    players.forEach(
+        name => {
+
+            const profile =
+                playerProfiles[name] ||
+                {
+
+                    mevki:
+                        "Orta Saha",
+
+                    puan:
+                        5
+
+                };
+
+
+            const row =
+                document.createElement(
+                    "div"
+                );
+
+
+            row.className =
+                "admin-player-row";
+
+
+            const nameElement =
+                document.createElement(
+                    "div"
+                );
+
+
+            nameElement.className =
+                "admin-player-name";
+
+
+            nameElement.textContent =
+                name;
+
+
+            row.appendChild(
+                nameElement
+            );
+
+
+            const select =
+                document.createElement(
+                    "select"
+                );
+
+
+            positions.forEach(
+                position => {
+
+                    const option =
+                        document.createElement(
+                            "option"
+                        );
+
+                    option.value =
+                        position;
+
+                    option.textContent =
+                        position;
+
+                    if (
+                        position ===
+                        profile.mevki
+                    ) {
+
+                        option.selected =
+                            true;
+
+                    }
+
+                    select.appendChild(
+                        option
+                    );
+
+                }
+            );
+
+
+            row.appendChild(
+                select
+            );
+
+
+            const input =
+                document.createElement(
+                    "input"
+                );
+
+
+            input.type =
+                "number";
+
+            input.min =
+                "1";
+
+            input.max =
+                "10";
+
+            input.value =
+                profile.puan;
+
+
+            row.appendChild(
+                input
+            );
+
+
+            const saveButton =
+                document.createElement(
+                    "button"
+                );
+
+
+            saveButton.className =
+                "save-player-button";
+
+
+            saveButton.textContent =
+                "Kaydet";
+
+
+            saveButton.addEventListener(
+                "click",
+                function() {
+
+                    savePlayerProfile(
+                        name,
+                        select.value,
+                        input.value,
+                        saveButton
+                    );
+
+                }
+            );
+
+
+            row.appendChild(
+                saveButton
+            );
+
+
+            container.appendChild(
+                row
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================
+   PROFİL KAYDET
+========================================= */
+
+function savePlayerProfile(
+    name,
+    mevki,
+    puan,
+    button
+) {
+
+    const password =
+        prompt(
+            "Yönetici şifresini gir:"
+        );
+
+
+    if (password === null) {
+        return;
+    }
+
+
+    if (
+        password !==
+        ADMIN_PASSWORD
+    ) {
+
+        alert(
+            "Hatalı şifre!"
+        );
+
+        return;
+
+    }
+
+
+    puan =
+        Number(puan);
+
+
+    if (
+        isNaN(puan) ||
+        puan < 1 ||
+        puan > 10
+    ) {
+
+        alert(
+            "Puan 1 ile 10 arasında olmalı."
+        );
+
+        return;
+
+    }
+
+
+    button.disabled =
+        true;
+
+    button.textContent =
+        "...";
+
+
+    sendPost(
+
+        {
+
+            action:
+                "savePlayer",
+
+            password:
+                password,
+
+            isim:
+                name,
+
+            mevki:
+                mevki,
+
+            puan:
+                puan
+
+        },
+
+        function() {
+
+            playerProfiles[name] = {
+
+                mevki:
+                    mevki,
+
+                puan:
+                    puan
+
+            };
+
+
+            button.disabled =
+                false;
+
+            button.textContent =
+                "Kaydedildi ✓";
+
+
+            updateTeams();
+
+
+            setTimeout(
+                () => {
+
+                    button.textContent =
+                        "Kaydet";
+
+                },
+                1200
+            );
+
+        }
+
+    );
+
+}
+
+
+/* =========================================
+   TAKIMLARI GÜNCELLE
+========================================= */
+
+function updateTeams() {
+
+    const comingPlayers =
+        players.filter(
+            name =>
+                playerStatuses[name] ===
+                "Geliyorum"
+        );
+
+
+    const section =
+        document.getElementById(
+            "teamsSection"
+        );
+
+
+    const grid =
+        document.getElementById(
+            "teamsGrid"
+        );
+
+
+    if (
+        comingPlayers.length !==
+        MAX_PLAYERS
+    ) {
+
+        grid.innerHTML = `
+
+            <div class="team-card">
+
+                <div class="team-header">
+
+                    <div class="team-name">
+                        ⚽ Takımlar bekleniyor
+                    </div>
+
+                </div>
+
+                <p style="
+                    color:#647067;
+                    font-size:13px;
+                    line-height:1.6;
+                ">
+
+                    Takımların otomatik oluşturulması
+                    için 14 kişinin de
+                    <strong>Geliyorum</strong>
+                    demesi gerekiyor.
+
+                    <br><br>
+
+                    Şu anda:
+                    <strong>
+                        ${comingPlayers.length}/14
+                    </strong>
+
+                </p>
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+
+    const teams =
+        createBalancedTeams(
+            comingPlayers
+        );
+
+
+    renderTeams(
+        teams
+    );
+
+}
+
+
+/* =========================================
+   DENGELİ TAKIM OLUŞTUR
+========================================= */
+
+function createBalancedTeams(
+    playerNames
+) {
+
+    const allPlayers =
+        playerNames.map(
+            name => {
+
+                const profile =
+                    playerProfiles[name] ||
+                    {
+
+                        mevki:
+                            "Orta Saha",
+
+                        puan:
+                            5
+
+                    };
+
+
+                return {
+
+                    isim:
+                        name,
+
+                    mevki:
+                        profile.mevki,
+
+                    puan:
+                        Number(
+                            profile.puan
+                        ) || 5
+
+                };
+
+            }
+        );
+
+
+    const combinations =
+        getCombinations(
+            allPlayers,
+            7
+        );
+
+
+    let bestTeams =
+        null;
+
+    let bestScore =
+        Infinity;
+
+
+    combinations.forEach(
+        teamA => {
+
+            const teamANames =
+                new Set(
+                    teamA.map(
+                        player =>
+                            player.isim
+                    )
+                );
+
+
+            const teamB =
+                allPlayers.filter(
+                    player =>
+                        !teamANames.has(
+                            player.isim
+                        )
+                );
+
+
+            const score =
+                calculateTeamScore(
+                    teamA,
+                    teamB
+                );
+
+
+            if (
+                score <
+                bestScore
+            ) {
+
+                bestScore =
+                    score;
+
+                bestTeams = {
+
+                    teamA:
+                        teamA,
+
+                    teamB:
+                        teamB
+
+                };
+
+            }
+
+        }
+    );
+
+
+    return bestTeams;
+
+}
+
+
+/* =========================================
+   COMBINATIONS
+========================================= */
+
+function getCombinations(
+    array,
+    size
+) {
+
+    const result = [];
+
+
+    function combine(
+        start,
+        current
+    ) {
+
+        if (
+            current.length ===
+            size
+        ) {
+
+            result.push(
+                [...current]
+            );
+
+            return;
+
+        }
+
+
+        for (
+            let i = start;
+            i < array.length;
+            i++
+        ) {
+
+            current.push(
+                array[i]
+            );
+
+
+            combine(
+                i + 1,
+                current
+            );
+
+
+            current.pop();
+
+        }
+
+    }
+
+
+    combine(
+        0,
+        []
+    );
+
+
+    return result;
+
+}
+
+
+/* =========================================
+   TAKIM PUANLAMA
+========================================= */
+
+function calculateTeamScore(
+    teamA,
+    teamB
+) {
+
+    const ratingA =
+        teamA.reduce(
+            (sum, player) =>
+                sum + player.puan,
+            0
+        );
+
+
+    const ratingB =
+        teamB.reduce(
+            (sum, player) =>
+                sum + player.puan,
+            0
+        );
+
+
+    let score =
+        Math.abs(
+            ratingA -
+            ratingB
+        ) * 100;
+
+
+    positions.forEach(
+        position => {
+
+            const countA =
+                teamA.filter(
+                    player =>
+                        player.mevki ===
+                        position
+                ).length;
+
+
+            const countB =
+                teamB.filter(
+                    player =>
+                        player.mevki ===
+                        position
+                ).length;
+
+
+            score +=
+                Math.abs(
+                    countA -
+                    countB
+                ) * 25;
+
+        }
+    );
+
+
+    /*
+       Kaleci dengesi
+    */
+
+    const goalkeeperA =
+        teamA.filter(
+            player =>
+                player.mevki ===
+                "Kaleci"
+        ).length;
+
+
+    const goalkeeperB =
+        teamB.filter(
+            player =>
+                player.mevki ===
+                "Kaleci"
+        ).length;
+
+
+    score +=
+        Math.abs(
+            goalkeeperA -
+            goalkeeperB
+        ) * 80;
+
+
+    return score;
+
+}
+
+
+/* =========================================
+   POZİSYONA GÖRE SIRALA
+========================================= */
+
+function sortPlayersByPosition(
+    playersArray
+) {
+
+    const order = {
+
+        "Kaleci": 1,
+        "Defans": 2,
+        "Orta Saha": 3,
+        "Forvet": 4
+
+    };
+
+
+    return [
+        ...playersArray
+    ].sort(
+        (a, b) =>
+            order[a.mevki] -
+            order[b.mevki]
+    );
+
+}
+
+
+/* =========================================
+   TAKIMLARI RENDER
+========================================= */
+
+function renderTeams(
+    teams
+) {
+
+    const grid =
+        document.getElementById(
+            "teamsGrid"
+        );
+
+
+    const teamA =
+        sortPlayersByPosition(
+            teams.teamA
+        );
+
+
+    const teamB =
+        sortPlayersByPosition(
+            teams.teamB
+        );
+
+
+    const ratingA =
+        teamA.reduce(
+            (sum, player) =>
+                sum + player.puan,
+            0
+        );
+
+
+    const ratingB =
+        teamB.reduce(
+            (sum, player) =>
+                sum + player.puan,
+            0
+        );
+
+
+    grid.innerHTML = `
+
+        <div class="team-card team-a">
+
+            <div class="team-header">
+
+                <div class="team-name">
+                    🟢 Takım A
+                </div>
+
+                <div class="team-total">
+                    ${ratingA} puan
+                </div>
+
+            </div>
+
+            <div class="team-players">
+
+                ${createTeamPlayersHTML(
+                    teamA
+                )}
+
+            </div>
+
         </div>
+
+
+        <div class="team-card team-b">
+
+            <div class="team-header">
+
+                <div class="team-name">
+                    🟡 Takım B
+                </div>
+
+                <div class="team-total">
+                    ${ratingB} puan
+                </div>
+
+            </div>
+
+            <div class="team-players">
+
+                ${createTeamPlayersHTML(
+                    teamB
+                )}
+
+            </div>
+
+        </div>
+
     `;
 
 }
 
 
 /* =========================================
-   IBAN KOPYALAMA
+   TAKIM OYUNCULARI
+========================================= */
+
+function createTeamPlayersHTML(
+    team
+) {
+
+    return team.map(
+        (player, index) => `
+
+            <div class="team-player">
+
+                <div class="team-player-left">
+
+                    <div class="team-player-number">
+                        ${index + 1}
+                    </div>
+
+                    <div>
+
+                        <div class="team-player-name">
+                            ${escapeHtml(
+                                player.isim
+                            )}
+                        </div>
+
+                        <div class="team-player-position">
+                            ${escapeHtml(
+                                player.mevki
+                            )}
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        `
+    ).join("");
+
+}
+
+
+/* =========================================
+   TAKIMLARI MANUEL OLUŞTUR
+========================================= */
+
+function generateTeams() {
+
+    const coming =
+        players.filter(
+            name =>
+                playerStatuses[name] ===
+                "Geliyorum"
+        );
+
+
+    if (
+        coming.length !==
+        MAX_PLAYERS
+    ) {
+
+        alert(
+            "Takım oluşturmak için tam 14 kişi Geliyorum olmalı."
+        );
+
+        return;
+
+    }
+
+
+    updateTeams();
+
+    document.getElementById(
+        "teamsSection"
+    ).scrollIntoView({
+        behavior:
+            "smooth"
+    });
+
+}
+
+
+/* =========================================
+   IBAN KOPYALA
 ========================================= */
 
 function copyIban() {
 
     const iban =
-        document
-            .getElementById(
-                "ibanNumber"
-            )
-            .dataset
-            .iban
-            .trim();
-
-
-    const button =
         document.getElementById(
-            "copyIbanButton"
-        );
+            "ibanText"
+        )
+        .textContent
+        .trim();
 
 
     navigator.clipboard
         .writeText(iban)
-        .then(function () {
+        .then(
+            () => {
 
-            button.textContent =
-                "✅ Kopyalandı";
-
-            button.classList.add(
-                "copied"
-            );
-
-
-            setTimeout(
-                function () {
-
-                    button.textContent =
-                        "📋 Kopyala";
-
-                    button.classList.remove(
-                        "copied"
+                const button =
+                    document.getElementById(
+                        "copyIbanButton"
                     );
 
-                },
-                1800
+
+                const oldText =
+                    button.textContent;
+
+
+                button.textContent =
+                    "✅ Kopyalandı";
+
+
+                setTimeout(
+                    () => {
+
+                        button.textContent =
+                            oldText;
+
+                    },
+                    1500
+                );
+
+            }
+        )
+        .catch(
+            () => {
+
+                alert(
+                    "IBAN: " + iban
+                );
+
+            }
+        );
+
+}
+
+
+/* =========================================
+   SES SİSTEMİ
+========================================= */
+
+function setupAudio() {
+
+    /*
+       Ses dosyalarını oluştur
+    */
+
+    mainAudio =
+        new Audio("arka.mp3");
+
+    katilimAudio =
+        new Audio("katilim.mp3");
+
+    haftayaBeklerizAudio =
+        new Audio(
+            "haftaya-bekleriz.mp3"
+        );
+
+
+    /*
+       Arka plan müziği
+    */
+
+    mainAudio.loop =
+        true;
+
+    mainAudio.volume =
+        0.20;
+
+
+    /*
+       Katılım sesi
+    */
+
+    katilimAudio.volume =
+        0.75;
+
+
+    /*
+       Gelemez sesi
+    */
+
+    haftayaBeklerizAudio.volume =
+        0.75;
+
+
+    /*
+       Ses butonu
+    */
+
+    const audioButton =
+        document.getElementById(
+            "audioButton"
+        );
+
+
+    audioButton.addEventListener(
+        "click",
+        toggleMainAudio
+    );
+
+
+    /*
+       Tarayıcı autoplay engeli
+       nedeniyle ilk kullanıcı
+       etkileşiminde müziği aç.
+    */
+
+    const startAudioOnce =
+        () => {
+
+            if (audioStarted) {
+                return;
+            }
+
+
+            mainAudio
+                .play()
+                .then(
+                    () => {
+
+                        audioStarted =
+                            true;
+
+                        updateAudioButton(
+                            true
+                        );
+
+                    }
+                )
+                .catch(
+                    () => {}
+                );
+
+        };
+
+
+    document.addEventListener(
+        "click",
+        startAudioOnce,
+        {
+            once: true
+        }
+    );
+
+
+    document.addEventListener(
+        "touchstart",
+        startAudioOnce,
+        {
+            once: true
+        }
+    );
+
+}
+
+
+/* =========================================
+   ARKA PLAN SESİ
+========================================= */
+
+function toggleMainAudio() {
+
+    if (!mainAudio) {
+        return;
+    }
+
+
+    if (
+        mainAudio.paused
+    ) {
+
+        mainAudio
+            .play()
+            .then(
+                () => {
+
+                    audioStarted =
+                        true;
+
+                    updateAudioButton(
+                        true
+                    );
+
+                }
+            )
+            .catch(
+                error => {
+
+                    console.log(
+                        "Ses başlatılamadı:",
+                        error
+                    );
+
+                }
             );
 
-        })
-        .catch(function () {
+    }
 
-            alert(
-                "IBAN kopyalanamadı."
-            );
+    else {
 
-        });
+        mainAudio.pause();
+
+        updateAudioButton(
+            false
+        );
+
+    }
+
+}
+
+
+/* =========================================
+   SES BUTONU
+========================================= */
+
+function updateAudioButton(
+    isPlaying
+) {
+
+    const button =
+        document.getElementById(
+            "audioButton"
+        );
+
+
+    if (!button) {
+        return;
+    }
+
+
+    if (isPlaying) {
+
+        button.innerHTML =
+            "🔊";
+
+        button.title =
+            "Sesi Kapat";
+
+        button.classList.add(
+            "audio-playing"
+        );
+
+    }
+
+    else {
+
+        button.innerHTML =
+            "🔇";
+
+        button.title =
+            "Sesi Aç";
+
+        button.classList.remove(
+            "audio-playing"
+        );
+
+    }
+
+}
+
+
+/* =========================================
+   KATILIM SESİ
+========================================= */
+
+function playKatilimSound() {
+
+    if (!katilimAudio) {
+        return;
+    }
+
+
+    katilimAudio.currentTime =
+        0;
+
+
+    katilimAudio
+        .play()
+        .catch(
+            error => {
+
+                console.log(
+                    "Katılım sesi oynatılamadı:",
+                    error
+                );
+
+            }
+        );
+
+}
+
+
+/* =========================================
+   HAFTAYA BEKLERİZ SESİ
+========================================= */
+
+function playHaftayaBeklerizSound() {
+
+    if (!haftayaBeklerizAudio) {
+        return;
+    }
+
+
+    haftayaBeklerizAudio.currentTime =
+        0;
+
+
+    haftayaBeklerizAudio
+        .play()
+        .catch(
+            error => {
+
+                console.log(
+                    "Ses oynatılamadı:",
+                    error
+                );
+
+            }
+        );
+
+}
+
+
+/* =========================================
+   DURUM SESİ
+========================================= */
+
+function playStatusSound(
+    status
+) {
+
+    if (
+        status ===
+        "Geliyorum"
+    ) {
+
+        playKatilimSound();
+
+    }
+
+    else if (
+        status ===
+        "Gelemiyorum"
+    ) {
+
+        playHaftayaBeklerizSound();
+
+    }
 
 }
 
@@ -1172,70 +2451,48 @@ function copyIban() {
    BUTONLAR
 ========================================= */
 
-document
-    .getElementById(
+function setupButtons() {
+
+    document.getElementById(
         "comingButton"
     )
     .addEventListener(
         "click",
-        function () {
+        () => {
 
-            if (selectedPlayer) {
-
-                setStatus(
-                    selectedPlayer,
-                    "Geliyorum"
-                );
-
-            }
+            setStatus(
+                "Geliyorum"
+            );
 
         }
     );
 
 
-document
-    .getElementById(
+    document.getElementById(
         "notComingButton"
     )
     .addEventListener(
         "click",
-        function () {
+        () => {
 
-            if (selectedPlayer) {
-
-                setStatus(
-                    selectedPlayer,
-                    "Gelemiyorum"
-                );
-
-            }
+            setStatus(
+                "Gelemiyorum"
+            );
 
         }
     );
 
 
-document
-    .getElementById(
+    document.getElementById(
         "paymentButton"
     )
     .addEventListener(
         "click",
-        function () {
-
-            if (selectedPlayer) {
-
-                setPayment(
-                    selectedPlayer
-                );
-
-            }
-
-        }
+        setPayment
     );
 
 
-document
-    .getElementById(
+    document.getElementById(
         "clearButton"
     )
     .addEventListener(
@@ -1244,8 +2501,34 @@ document
     );
 
 
-document
-    .getElementById(
+    document.getElementById(
+        "adminOpenButton"
+    )
+    .addEventListener(
+        "click",
+        openAdminPanel
+    );
+
+
+    document.getElementById(
+        "adminCloseButton"
+    )
+    .addEventListener(
+        "click",
+        closeAdminPanel
+    );
+
+
+    document.getElementById(
+        "generateTeamsButton"
+    )
+    .addEventListener(
+        "click",
+        generateTeams
+    );
+
+
+    document.getElementById(
         "copyIbanButton"
     )
     .addEventListener(
@@ -1253,112 +2536,129 @@ document
         copyIban
     );
 
-let mainAudio = null;
+}
 
 
-document
-    .getElementById(
-        "playSoundButton"
-    )
-    .addEventListener(
-        "click",
-        function () {
+/* =========================================
+   LOADING
+========================================= */
 
-            const button = this;
+function hideLoading() {
 
-
-            /*
-               Ses hiç oluşturulmadıysa
-               ilk kez oluştur.
-            */
-
-            if (!mainAudio) {
-
-                mainAudio =
-                    new Audio("arka.mp3");
+    const loading =
+        document.getElementById(
+            "loading"
+        );
 
 
-                mainAudio.addEventListener(
-                    "ended",
-                    function () {
-
-                        button.textContent =
-                            "▶️";
-
-                    }
-                );
-
-            }
-
-
-            /*
-               Çalıyorsa durdur,
-               durmuşsa çal.
-            */
-
-            if (
-                mainAudio.paused
-            ) {
-
-                mainAudio.play()
-                    .catch(function (error) {
-
-                        console.error(
-                            "Ses çalınamadı:",
-                            error
-                        );
-
-                    });
-
-
-                button.textContent =
-                    "⏸️";
-
-            }
-
-            else {
-
-                mainAudio.pause();
-
-                mainAudio.currentTime =
-                    0;
-
-
-                button.textContent =
-                    "▶️";
-
-            }
-
-        }
+    loading.classList.add(
+        "hidden"
     );
+
+
+    document.getElementById(
+        "connectionError"
+    )
+    .classList.add(
+        "hidden"
+    );
+
+}
+
+
 /* =========================================
-   BAŞLAT
+   CONNECTION ERROR
 ========================================= */
 
-createPlayerSelect();
+function showConnectionError() {
 
-updateCounters();
+    document.getElementById(
+        "loading"
+    )
+    .classList.add(
+        "hidden"
+    );
 
-loadData();
+
+    document.getElementById(
+        "connectionError"
+    )
+    .classList.remove(
+        "hidden"
+    );
+
+}
 
 
 /* =========================================
-   OTOMATİK KONTROL
+   SON GÜNCELLEME
 ========================================= */
 
-setInterval(
-    function () {
+function updateLastUpdate() {
 
-        if (
-            !clearingWeek &&
-            !actionInProgress &&
-            !dataLoading
-        ) {
+    const element =
+        document.getElementById(
+            "lastUpdate"
+        );
 
-            loadData();
 
-        }
+    const now =
+        new Date();
 
-    },
-    3000
-);
+
+    const time =
+        now.toLocaleTimeString(
+            "tr-TR",
+            {
+
+                hour:
+                    "2-digit",
+
+                minute:
+                    "2-digit",
+
+                second:
+                    "2-digit"
+
+            }
+        );
+
+
+    element.textContent =
+        "Son güncelleme: " +
+        time;
+
+}
+
+
+/* =========================================
+   HTML GÜVENLİĞİ
+========================================= */
+
+function escapeHtml(
+    text
+) {
+
+    return String(text)
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+        .replace(
+            /</g,
+            "&lt;"
+        )
+        .replace(
+            />/g,
+            "&gt;"
+        )
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+
+}
