@@ -11,7 +11,7 @@
 
     <meta
         name="theme-color"
-        content="#173b25"
+        content="#14251a"
     >
 
     <title>Bizim Ekip | Halı Saha</title>
@@ -28,14 +28,15 @@
          ARKA PLAN
     ========================================== -->
 
+    <div class="page-background"></div>
     <div class="page-overlay"></div>
 
 
     <!-- =========================================
-         ANA CONTAINER
+         ANA UYGULAMA
     ========================================== -->
 
-    <main class="container">
+    <main class="app-container">
 
 
         <!-- =====================================
@@ -44,26 +45,30 @@
 
         <section class="hero">
 
-            <div class="hero-logo-wrap">
+            <div class="hero-logo-wrapper">
 
                 <img
                     src="logo.jpeg"
-                    alt="Bizim Ekip Logo"
+                    alt="Bizim Ekip"
                     class="hero-logo"
                 >
 
             </div>
 
+
             <div class="hero-content">
 
-                <span class="hero-badge">
-                        BİZİM EKİP
-                </span>
+                <div class="hero-badge">
+                    ⚽ BİZİM EKİP
+                </div>
 
                 <h1>
                     Halı Saha
                 </h1>
 
+                <p>
+                    Haftalık maç katılım sistemi
+                </p>
 
             </div>
 
@@ -74,7 +79,7 @@
              MAÇ BİLGİLERİ
         ====================================== -->
 
-        <section class="match-info">
+        <section class="match-info-grid">
 
             <div class="info-card">
 
@@ -83,8 +88,15 @@
                 </div>
 
                 <div>
-                    <span>Gün</span>
-                    <strong>Salı</strong>
+
+                    <span>
+                        Gün
+                    </span>
+
+                    <strong>
+                        Salı
+                    </strong>
+
                 </div>
 
             </div>
@@ -97,8 +109,15 @@
                 </div>
 
                 <div>
-                    <span>Saat</span>
-                    <strong>21:00 - 22:00</strong>
+
+                    <span>
+                        Saat
+                    </span>
+
+                    <strong>
+                        22:00 - 23:00
+                    </strong>
+
                 </div>
 
             </div>
@@ -111,8 +130,100 @@
                 </div>
 
                 <div>
-                    <span>Kapasite</span>
-                    <strong>14 Kişi</strong>
+
+                    <span>
+                        Kontenjan
+                    </span>
+
+                    <strong>
+                        14 Kişi
+                    </strong>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =====================================
+             GERİ SAYIM
+        ====================================== -->
+
+        <section class="countdown-card">
+
+            <div class="section-heading centered">
+
+                <span class="section-icon">
+                    ⏱️
+                </span>
+
+                <div>
+
+                    <h2>
+                        Maça Kalan Süre
+                    </h2>
+
+                    <p id="countdownText">
+                        Salı 22:00 bekleniyor
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="countdown-grid">
+
+                <div class="countdown-box">
+
+                    <strong id="countDays">
+                        00
+                    </strong>
+
+                    <span>
+                        Gün
+                    </span>
+
+                </div>
+
+
+                <div class="countdown-box">
+
+                    <strong id="countHours">
+                        00
+                    </strong>
+
+                    <span>
+                        Saat
+                    </span>
+
+                </div>
+
+
+                <div class="countdown-box">
+
+                    <strong id="countMinutes">
+                        00
+                    </strong>
+
+                    <span>
+                        Dakika
+                    </span>
+
+                </div>
+
+
+                <div class="countdown-box">
+
+                    <strong id="countSeconds">
+                        00
+                    </strong>
+
+                    <span>
+                        Saniye
+                    </span>
+
                 </div>
 
             </div>
@@ -126,22 +237,26 @@
 
         <section class="payment-card">
 
-            <div class="payment-left">
+            <div class="section-heading">
 
-                <div class="payment-icon">
+                <span class="section-icon">
                     💳
-                </div>
+                </span>
 
                 <div>
 
-                    <span class="section-label">
-                        Maç Ücreti
-                    </span>
+                    <h2>
+                        Maç Ödemesi
+                    </h2>
 
-                    <strong class="payment-price">
-                        150 TL
-                    </strong>
+                    <p>
+                        Maç ücreti
+                    </p>
 
+                </div>
+
+                <div class="price-badge">
+                    150 TL
                 </div>
 
             </div>
@@ -149,14 +264,16 @@
 
             <div class="iban-box">
 
-                <span>
+                <div class="iban-label">
                     IBAN
-                </span>
+                </div>
 
-                <!-- GERÇEK IBAN'INI BURAYA YAZ -->
-                <strong id="ibanText">
+                <div
+                    class="iban-value"
+                    id="ibanText"
+                >
                     TR00 0000 0000 0000 0000 0000 00
-                </strong>
+                </div>
 
                 <button
                     id="copyIbanButton"
@@ -165,6 +282,42 @@
                 >
                     📋 Kopyala
                 </button>
+
+            </div>
+
+
+            <div class="payment-progress-area">
+
+                <div class="progress-title">
+
+                    <span>
+                        Ödeme Durumu
+                    </span>
+
+                    <strong id="paymentCount">
+                        0 / 14
+                    </strong>
+
+                </div>
+
+
+                <div class="progress-track">
+
+                    <div
+                        id="paymentProgress"
+                        class="progress-fill"
+                        style="width:0%"
+                    ></div>
+
+                </div>
+
+
+                <div
+                    id="paymentNames"
+                    class="payment-names"
+                >
+                    Henüz ödeme yapan yok.
+                </div>
 
             </div>
 
@@ -179,23 +332,20 @@
 
             <div class="section-heading">
 
+                <span class="section-icon">
+                    📊
+                </span>
+
                 <div>
 
-                    <span class="section-label">
-                        Canlı Durum
-                    </span>
-
                     <h2>
-                        Bu Haftaki Katılım
+                        Bu Haftanın Durumu
                     </h2>
 
-                </div>
+                    <p>
+                        Canlı katılım özeti
+                    </p>
 
-                <div
-                    id="capacityFull"
-                    class="capacity-full hidden"
-                >
-                    🔒 Kontenjan Dolu
                 </div>
 
             </div>
@@ -203,17 +353,16 @@
 
             <div class="summary-grid">
 
-
-                <div class="summary-card coming">
+                <div class="summary-card coming-summary">
 
                     <div class="summary-icon">
-                        ⚽
+                        🟢
                     </div>
 
                     <div>
 
                         <span>
-                            Geliyorum
+                            Geliyor
                         </span>
 
                         <strong id="comingCount">
@@ -225,16 +374,16 @@
                 </div>
 
 
-                <div class="summary-card not-coming">
+                <div class="summary-card not-coming-summary">
 
                     <div class="summary-icon">
-                        ❌
+                        🔴
                     </div>
 
                     <div>
 
                         <span>
-                            Gelemiyorum
+                            Gelmiyor
                         </span>
 
                         <strong id="notComingCount">
@@ -246,23 +395,139 @@
                 </div>
 
 
-                <div class="summary-card waiting">
+                <div class="summary-card waiting-summary">
 
                     <div class="summary-icon">
-                        ⏳
+                        🟡
                     </div>
 
                     <div>
 
                         <span>
-                            Cevap Vermedi
+                            Bekliyor
                         </span>
 
                         <strong id="waitingCount">
-                            0
+                            18
                         </strong>
 
                     </div>
+
+                </div>
+
+            </div>
+
+
+            <div
+                id="capacityFull"
+                class="capacity-full hidden"
+            >
+                🔥 Maç kadrosu tamamlandı! 14 kişi doldu.
+            </div>
+
+        </section>
+
+
+        <!-- =====================================
+             KATILIM LİSTELERİ
+        ====================================== -->
+
+        <section class="lists-section">
+
+            <div class="section-heading">
+
+                <span class="section-icon">
+                    👥
+                </span>
+
+                <div>
+
+                    <h2>
+                        Katılım Listeleri
+                    </h2>
+
+                    <p>
+                        Haftanın güncel durumu
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="attendance-lists">
+
+                <div class="attendance-list-card coming-list-card">
+
+                    <div class="list-header">
+
+                        <div>
+                            🟢
+                            <strong>
+                                Geliyorum
+                            </strong>
+                        </div>
+
+                        <span id="comingListCount">
+                            0
+                        </span>
+
+                    </div>
+
+                    <div
+                        id="comingList"
+                        class="player-list"
+                    ></div>
+
+                </div>
+
+
+                <div class="attendance-list-card not-coming-list-card">
+
+                    <div class="list-header">
+
+                        <div>
+                            🔴
+                            <strong>
+                                Gelemiyorum
+                            </strong>
+                        </div>
+
+                        <span id="notComingListCount">
+                            0
+                        </span>
+
+                    </div>
+
+                    <div
+                        id="notComingList"
+                        class="player-list"
+                    ></div>
+
+                </div>
+
+
+                <div class="attendance-list-card waiting-list-card">
+
+                    <div class="list-header">
+
+                        <div>
+                            🟡
+                            <strong>
+                                Cevap Vermedi
+                            </strong>
+                        </div>
+
+                        <span id="waitingListCount">
+                            0
+                        </span>
+
+                    </div>
+
+                    <div
+                        id="waitingList"
+                        class="player-list"
+                    ></div>
 
                 </div>
 
@@ -275,26 +540,30 @@
              OYUNCU SEÇİMİ
         ====================================== -->
 
-        <section class="player-section">
+        <section class="selection-section">
 
             <div class="section-heading">
 
+                <span class="section-icon">
+                    🏃
+                </span>
+
                 <div>
 
-                    <span class="section-label">
-                        Katılım
-                    </span>
-
                     <h2>
-                        Oyuncunu Seç
+                        Katılımını Bildir
                     </h2>
+
+                    <p>
+                        Önce oyuncunu seç
+                    </p>
 
                 </div>
 
             </div>
 
 
-            <div class="player-selector">
+            <div class="player-selector-wrapper">
 
                 <label for="playerSelect">
                     Oyuncu
@@ -311,14 +580,12 @@
             </div>
 
 
-            <!-- Seçilen oyuncu -->
-
             <div
                 id="selectedPlayerPanel"
                 class="selected-player-panel hidden"
             >
 
-                <div class="selected-player-header">
+                <div class="selected-player-top">
 
                     <div class="selected-avatar">
                         ⚽
@@ -327,7 +594,7 @@
                     <div>
 
                         <span>
-                            Seçilen Oyuncu
+                            Seçilen oyuncu
                         </span>
 
                         <h3 id="selectedPlayerName">
@@ -339,15 +606,20 @@
                 </div>
 
 
-                <div class="status-actions">
+                <div class="status-buttons">
 
                     <button
                         id="comingButton"
                         class="status-button coming-button"
                         type="button"
                     >
-                        <span>⚽</span>
-                        Geliyorum
+                        <span>
+                            🟢
+                        </span>
+
+                        <strong>
+                            Geliyorum
+                        </strong>
                     </button>
 
 
@@ -356,8 +628,13 @@
                         class="status-button not-coming-button"
                         type="button"
                     >
-                        <span>❌</span>
-                        Gelemiyorum
+                        <span>
+                            🔴
+                        </span>
+
+                        <strong>
+                            Gelemiyorum
+                        </strong>
                     </button>
 
                 </div>
@@ -365,7 +642,7 @@
 
                 <button
                     id="paymentButton"
-                    class="payment-button"
+                    class="payment-action-button"
                     type="button"
                 >
                     💳 Ödemeyi Yaptım
@@ -390,22 +667,29 @@
 
             <div class="section-heading">
 
+                <span class="section-icon">
+                    ⚽
+                </span>
+
                 <div>
 
-                    <span class="section-label">
-                        Otomatik Kadro
-                    </span>
-
                     <h2>
-                        ⚽ Takımlar
+                        Otomatik Takımlar
                     </h2>
 
-                    <p class="section-description">
-                        14 kişi tamamlandığında dengeli
-                        7'ye 7 takımlar oluşturulur.
+                    <p>
+                        14 kişi tamamlanınca dengeli 7v7
                     </p>
 
                 </div>
+
+                <button
+                    id="generateTeamsButton"
+                    class="small-action-button"
+                    type="button"
+                >
+                    🔄 Yenile
+                </button>
 
             </div>
 
@@ -414,8 +698,7 @@
                 id="teamsLoading"
                 class="teams-loading hidden"
             >
-                <div class="spinner"></div>
-                Takımlar hazırlanıyor...
+                Takımlar hesaplanıyor...
             </div>
 
 
@@ -423,13 +706,239 @@
                 id="teamsGrid"
                 class="teams-grid"
             >
+
+                <div class="empty-team-card">
+
+                    <div class="empty-team-icon">
+                        ⚽
+                    </div>
+
+                    <h3>
+                        Takımlar bekleniyor
+                    </h3>
+
+                    <p>
+                        Otomatik 7v7 takım oluşturmak için
+                        14 kişinin tamamının
+                        <strong>Geliyorum</strong>
+                        demesi gerekiyor.
+                    </p>
+
+                    <div class="team-wait-count">
+                        0 / 14
+                    </div>
+
+                </div>
+
             </div>
 
         </section>
 
 
         <!-- =====================================
-             ADMIN PANELİ
+             OYUNCU PROFİLLERİ
+        ====================================== -->
+
+        <section class="profiles-section">
+
+            <div class="section-heading">
+
+                <span class="section-icon">
+                    👤
+                </span>
+
+                <div>
+
+                    <h2>
+                        Oyuncu Profilleri
+                    </h2>
+
+                    <p>
+                        Mevki, puan ve katılım istatistikleri
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="profile-selector-wrapper">
+
+                <label for="profileSelect">
+                    Oyuncu seç
+                </label>
+
+                <select id="profileSelect">
+
+                    <option value="">
+                        Profil görmek için oyuncu seç...
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <div
+                id="profileCard"
+                class="profile-card hidden"
+            ></div>
+
+        </section>
+
+
+        <!-- =====================================
+             HAFTALIK İSTATİSTİKLER
+        ====================================== -->
+
+        <section class="stats-section">
+
+            <div class="section-heading">
+
+                <span class="section-icon">
+                    📈
+                </span>
+
+                <div>
+
+                    <h2>
+                        Haftalık İstatistikler
+                    </h2>
+
+                    <p>
+                        Bu haftanın genel özeti
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div class="weekly-stats-grid">
+
+                <div class="weekly-stat-card">
+
+                    <span>
+                        👥
+                    </span>
+
+                    <strong id="statTotalPlayers">
+                        18
+                    </strong>
+
+                    <small>
+                        Toplam Oyuncu
+                    </small>
+
+                </div>
+
+
+                <div class="weekly-stat-card">
+
+                    <span>
+                        🟢
+                    </span>
+
+                    <strong id="statComing">
+                        0
+                    </strong>
+
+                    <small>
+                        Katılacak
+                    </small>
+
+                </div>
+
+
+                <div class="weekly-stat-card">
+
+                    <span>
+                        💳
+                    </span>
+
+                    <strong id="statPaid">
+                        0
+                    </strong>
+
+                    <small>
+                        Ödeme
+                    </small>
+
+                </div>
+
+
+                <div class="weekly-stat-card">
+
+                    <span>
+                        ⏳
+                    </span>
+
+                    <strong id="statWaiting">
+                        18
+                    </strong>
+
+                    <small>
+                        Bekleyen
+                    </small>
+
+                </div>
+
+            </div>
+
+
+            <div
+                id="weeklyHighlight"
+                class="weekly-highlight"
+            >
+                Bu haftanın katılım durumu burada görünecek.
+            </div>
+
+        </section>
+
+
+        <!-- =====================================
+             GEÇMİŞ MAÇLAR
+        ====================================== -->
+
+        <section class="history-section">
+
+            <div class="section-heading">
+
+                <span class="section-icon">
+                    📅
+                </span>
+
+                <div>
+
+                    <h2>
+                        Geçmiş Maçlar
+                    </h2>
+
+                    <p>
+                        Önceki haftaların arşivi
+                    </p>
+
+                </div>
+
+            </div>
+
+
+            <div
+                id="historyList"
+                class="history-list"
+            >
+
+                <div class="history-empty">
+                    Geçmiş maçlar yükleniyor...
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =====================================
+             ADMIN
         ====================================== -->
 
         <section class="admin-section">
@@ -439,132 +948,196 @@
                 class="admin-open-button"
                 type="button"
             >
-                ⚙️ Yönetici Paneli
-            </button>
-
-
-            <div
-                id="adminPanel"
-                class="admin-panel hidden"
-            >
-
-                <div class="admin-header">
-
-                    <div>
-
-                        <span class="section-label">
-                            Yönetici
-                        </span>
-
-                        <h2>
-                            Oyuncu Ayarları
-                        </h2>
-
-                    </div>
-
-                    <button
-                        id="adminCloseButton"
-                        class="admin-close-button"
-                        type="button"
-                    >
-                        ✕
-                    </button>
-
-                </div>
-
-
-                <p class="admin-description">
-                    Oyuncuların mevki ve puanlarını
-                    buradan düzenleyebilirsin.
-                </p>
-
-
-                <div
-                    id="adminPlayers"
-                    class="admin-players"
-                >
-                </div>
-
-
-                <button
-                    id="generateTeamsButton"
-                    class="generate-teams-button"
-                    type="button"
-                >
-                    ⚽ Takımları Oluştur
-                </button>
-
-            </div>
-
-        </section>
-
-
-        <!-- =====================================
-             YENİ HAFTA
-        ====================================== -->
-
-        <section class="new-week-section">
-
-            <button
-                id="clearButton"
-                class="clear-button"
-                type="button"
-            >
-                🔄 Yeni Haftayı Başlat
+                🔐 Yönetici Paneli
             </button>
 
         </section>
 
 
         <!-- =====================================
-             DURUM
+             ALT BİLGİ
         ====================================== -->
 
-        <section class="connection-section">
+        <footer class="footer">
 
-            <div
-                id="loading"
-                class="loading-message"
-            >
-                ⏳ Veriler yükleniyor...
+            <div class="footer-logo">
+                 MKG Web Developer
             </div>
 
+            <p>
+                
+            </p>
 
-            <div
-                id="connectionError"
-                class="connection-error hidden"
-            >
-                ⚠️ Bağlantı kurulamadı.
-            </div>
-
-
-            <div
-                id="lastUpdate"
-                class="last-update"
-            >
+            <span id="lastUpdate">
                 Son güncelleme: -
-            </div>
-
-        </section>
-
-
-        <!-- =====================================
-             FOOTER
-        ====================================== -->
-
-        <footer>
-
-            <div>
-                ⚽ Bizim Ekip
-            </div>
-
-            <span>
-                Her Salı sahadayız!
             </span>
 
         </footer>
 
     </main>
+
+
+    <!-- =========================================
+         YÜKLENİYOR
+    ========================================== -->
+
+    <div
+        id="loading"
+        class="loading-overlay"
+    >
+
+        <div class="loading-box">
+
+            <div class="loading-spinner"></div>
+
+            <strong>
+                Sistem yükleniyor...
+            </strong>
+
+            <span>
+                Google Sheets bağlantısı kuruluyor
+            </span>
+
+        </div>
+
+    </div>
+
+
+    <!-- =========================================
+         BAĞLANTI HATASI
+    ========================================== -->
+
+    <div
+        id="connectionError"
+        class="connection-error hidden"
+    >
+
+        <div>
+            ⚠️
+        </div>
+
+        <strong>
+            Bağlantı kurulamadı
+        </strong>
+
+        <span>
+            Sayfayı yenilemeyi deneyin.
+        </span>
+
+        <button
+            onclick="location.reload()"
+        >
+            🔄 Yenile
+        </button>
+
+    </div>
+
+
+    <!-- =========================================
+         ADMIN MODAL
+    ========================================== -->
+
+    <div
+        id="adminPanel"
+        class="modal-overlay hidden"
+    >
+
+        <div class="admin-modal">
+
+            <div class="admin-modal-header">
+
+                <div>
+
+                    <span>
+                        🔐 Yönetici
+                    </span>
+
+                    <h2>
+                        Admin Paneli
+                    </h2>
+
+                </div>
+
+                <button
+                    id="adminCloseButton"
+                    class="modal-close"
+                    type="button"
+                >
+                    ✕
+                </button>
+
+            </div>
+
+
+            <div class="admin-summary">
+
+                <div>
+
+                    <span>
+                        Katılım
+                    </span>
+
+                    <strong id="adminComingCount">
+                        0 / 14
+                    </strong>
+
+                </div>
+
+
+                <div>
+
+                    <span>
+                        Ödeme
+                    </span>
+
+                    <strong id="adminPaidCount">
+                        0 / 14
+                    </strong>
+
+                </div>
+
+            </div>
+
+
+            <div class="admin-section-title">
+                ⚙️ Oyuncu Ayarları
+            </div>
+
+
+            <div
+                id="adminPlayers"
+                class="admin-players"
+            ></div>
+
+
+            <button
+                id="adminGenerateTeams"
+                class="admin-team-button"
+                type="button"
+            >
+                ⚽ Takımları Oluştur
+            </button>
+
+
+            <button
+                id="clearButton"
+                class="clear-week-button"
+                type="button"
+            >
+                🔄 Yeni Haftayı Başlat
+            </button>
+
+            <button
+    id="deleteHistoryButton"
+    class="delete-history-button"
+    type="button"
+>
+    🗑️ Tüm Arşivi Sil
+</button>
+
+        </div>
+
+    </div>
 
 
     <!-- =========================================
@@ -575,15 +1148,11 @@
         id="audioButton"
         class="audio-button"
         type="button"
-        title="Sesi Aç"
+        title="Arka plan müziğini aç"
     >
         🔇
     </button>
 
-
-    <!-- =========================================
-         JAVASCRIPT
-    ========================================== -->
 
     <script src="script.js"></script>
 
