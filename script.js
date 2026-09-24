@@ -15,7 +15,8 @@ const POSITIONS = ["Oyuncu", "Kaleci", "Defans", "Orta Saha", "Forvet"];
 const players = [
     "Mehmet Ali", "Fatih Keskin", "İsmet", "Numan", "Yasin", "Özek",
     "Hidayet", "Recep", "İbrahim Kök", "Dali", "SFR", "Emre", "Balcı",
-    "Sefer", "Aşık", "Cio", "Tahsin", "kemal gönen"
+    "Sefer", "Aşık", "Cio", "Tahsin", "kemal gönen",
+    "ömer savsar", "akif Altundepe", "burak kocatepe", "raşit karaca", "ömer altunkaya"
 ];
 
 /* ---------- DURUMLAR ---------- */
