@@ -6,7 +6,7 @@ const SCRIPT_URL =
     "https://script.google.com/macros/s/AKfycbw1032xl6q66hrmTwbD5WYnehlFFNZGwtxq9wwjSWgpGuTitiaGjke9sRJXLR8UL4hPgw/exec";
 
 const MAX_PLAYERS = 14;
-const ADMIN_PASSWORD = "1234";
+const ADMIN_PASSWORD = "Cacir03";
 const MATCH_FEE = 150;
 
 const DEFAULT_RATING = 70;
