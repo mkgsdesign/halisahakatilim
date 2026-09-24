@@ -665,6 +665,13 @@ section {
     background: linear-gradient(135deg, #4aa564, #2f8248);
 }
 
+.payment-not {
+    margin-top: 3px;
+    color: #0d0f02;
+    font-size: 25px;
+    line-height: 1.6;
+}
+
 .payment-note {
     margin-top: 11px;
     color: #82775e;
