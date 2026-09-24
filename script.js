@@ -1,36 +1,71 @@
-/* =========================================
-   BİZİM EKİP | HALI SAHA - DÜZELTİLMİŞ SÜRÜM
-========================================= */
+/* =========================================================
+   BİZİM EKİP HALI SAHA - Google Sheets + Apps Script
+========================================================= */
 
 const SCRIPT_URL =
     "https://script.google.com/macros/s/AKfycbw1032xl6q66hrmTwbD5WYnehlFFNZGwtxq9wwjSWgpGuTitiaGjke9sRJXLR8UL4hPgw/exec";
 
 const MAX_PLAYERS = 14;
 const ADMIN_PASSWORD = "1234";
+const MATCH_FEE = 150;
+
+const DEFAULT_RATING = 70;
+const POSITIONS = ["Oyuncu", "Kaleci", "Defans", "Orta Saha", "Forvet"];
 
 const players = [
     "Mehmet Ali", "Fatih Keskin", "İsmet", "Numan", "Yasin", "Özek",
-    "Hidayet", "Recep", "İbrahim Kök", "Dali", "SFR", "Emre",
-    "Balcı", "Sefer", "Aşık", "Cio", "Tahsin", "kemal gönen"
+    "Hidayet", "Recep", "İbrahim Kök", "Dali", "SFR", "Emre", "Balcı",
+    "Sefer", "Aşık", "Cio", "Tahsin", "kemal gönen"
 ];
 
-const positions = ["Kaleci", "Defans", "Orta Saha", "Forvet"];
+/* ---------- DURUMLAR ---------- */
 
-/* STATE */
 let playerStatuses = {};
 let playerPayments = {};
 let playerProfiles = {};
+let ratingEditedAt = {};
 let selectedPlayer = "";
 let historyData = [];
 let clearingWeek = false;
 let dataLoading = false;
 let actionInProgress = false;
 
-/* SES */
 let mainAudio = null;
-let katilimAudio = null;
-let haftayaBeklerizAudio = null;
 let audioStarted = false;
+let comingVideo = null;
+let notComingVideo = null;
+
+/* ---------- YARDIMCI ---------- */
+
+function $(id) {
+    return document.getElementById(id);
+}
+
+function setText(id, value) {
+    const el = $(id);
+    if (el) el.textContent = value;
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+function clampRating(value) {
+    const n = Math.round(Number(value));
+    if (isNaN(n)) return DEFAULT_RATING;
+    return Math.max(1, Math.min(100, n));
+}
+
+function getRating(name) {
+    return playerProfiles[name] ? playerProfiles[name].rating : DEFAULT_RATING;
+}
+
+/* ---------- BAŞLANGIÇ ---------- */
 
 document.addEventListener("DOMContentLoaded", initializeApp);
 
@@ -40,291 +75,424 @@ function initializeApp() {
     createProfileSelect();
     setupButtons();
     setupAudio();
+    setupVideos();
     startCountdown();
     loadProfiles();
     loadData();
     loadHistory();
+    updateCounters();
+    updateAttendanceLists();
+    updatePaymentProgress();
+    updateWeeklyStats();
+    updateSelectedPlayer();
 }
 
 function initializeState() {
     players.forEach(name => {
         playerStatuses[name] = "";
         playerPayments[name] = "";
+        playerProfiles[name] = { position: "Oyuncu", rating: DEFAULT_RATING, matches: 0 };
     });
 }
 
-/* =========================================
-   İSİM EŞLEŞTİRME (boşluk / büyük-küçük harf farkını tolere eder)
-========================================= */
+/* ---------- SELECT'LER ---------- */
 
-function normalizeName(text) {
-    return String(text || "")
-        .replace(/\s+/g, " ")
-        .trim()
-        .toLocaleLowerCase("tr-TR");
-}
-
-function findPlayerName(name) {
-    const key = normalizeName(name);
-    return players.find(p => normalizeName(p) === key) || null;
-}
-
-/* =========================================
-   SELECT'LER
-========================================= */
-
-function createPlayerSelect() {
-    const select = document.getElementById("playerSelect");
+function fillSelect(id, placeholder) {
+    const select = $(id);
     if (!select) return;
-
-    select.innerHTML = "";
-
-    const defaultOption = document.createElement("option");
-    defaultOption.value = "";
-    defaultOption.textContent = "Oyuncunu seç...";
-    select.appendChild(defaultOption);
-
+    select.innerHTML = `<option value="">${placeholder}</option>`;
     players.forEach(name => {
         const option = document.createElement("option");
         option.value = name;
         option.textContent = name;
         select.appendChild(option);
     });
+}
 
-    select.addEventListener("change", updateSelectedPlayer);
+function createPlayerSelect() {
+    fillSelect("playerSelect", "Oyuncunu seç...");
 }
 
 function createProfileSelect() {
-    const select = document.getElementById("profileSelect");
-    if (!select) return;
-
-    select.innerHTML = '<option value="">Profil görmek için oyuncu seç...</option>';
-
-    players.forEach(name => {
-        const option = document.createElement("option");
-        option.value = name;
-        option.textContent = name;
-        select.appendChild(option);
-    });
-
-    select.addEventListener("change", function () {
-        renderPlayerProfile(this.value);
-    });
+    fillSelect("profileSelect", "Oyuncu seç...");
 }
 
-function updateSelectedPlayer() {
-    selectedPlayer = document.getElementById("playerSelect").value;
-    showSelectedPlayer();
+/* ---------- BUTONLAR ---------- */
+
+function on(id, event, handler) {
+    const el = $(id);
+    if (el) el.addEventListener(event, handler);
 }
 
-function showSelectedPlayer() {
-    const panel = document.getElementById("selectedPlayerPanel");
-    const nameElement = document.getElementById("selectedPlayerName");
+function setupButtons() {
+    on("playerSelect", "change", showSelectedPlayer);
+    on("comingButton", "click", () => setStatus("Geliyorum"));
+    on("notComingButton", "click", () => setStatus("Gelemiyorum"));
+    on("paymentButton", "click", setPayment);
+    on("clearButton", "click", clearSelectedPlayer);
+    on("copyIbanButton", "click", copyIban);
+    on("profileSelect", "change", renderPlayerProfile);
+    on("generateTeamsButton", "click", generateTeams);
+    on("adminOpenButton", "click", openAdminPanel);
+    on("adminCloseButton", "click", closeAdminPanel);
+    on("adminGenerateTeams", "click", generateTeams);
+    on("adminClearWeek", "click", clearWeek);
+    on("deleteHistoryButton", "click", deleteHistory);
 
-    if (!selectedPlayer) {
-        panel.classList.add("hidden");
+    // Admin: puan / mevki değişince kaydet
+    on("adminPlayers", "change", handleAdminRatingChange);
+
+    const adminPanel = $("adminPanel");
+    if (adminPanel) {
+        adminPanel.addEventListener("click", event => {
+            if (event.target === adminPanel) closeAdminPanel();
+        });
+    }
+}
+
+/* ---------- VİDEO ---------- */
+
+function setupVideos() {
+    comingVideo = $("comingVideo");
+    notComingVideo = $("notComingVideo");
+
+    [comingVideo, notComingVideo].forEach(v => {
+        if (v) {
+            v.pause();
+            v.currentTime = 0;
+        }
+    });
+
+    if (comingVideo) comingVideo.addEventListener("ended", () => hideVideo("coming"));
+    if (notComingVideo) notComingVideo.addEventListener("ended", () => hideVideo("notComing"));
+}
+
+function playActionVideo(type) {
+    const isComing = type === "coming";
+    const video = isComing ? comingVideo : notComingVideo;
+    const box = $(isComing ? "leftVideoBox" : "rightVideoBox");
+    const otherVideo = isComing ? notComingVideo : comingVideo;
+    const otherBox = $(isComing ? "rightVideoBox" : "leftVideoBox");
+
+    if (!video || !box) return;
+
+    if (otherVideo) {
+        otherVideo.pause();
+        otherVideo.currentTime = 0;
+    }
+    if (otherBox) otherBox.classList.remove("video-active");
+
+    video.pause();
+    video.currentTime = 0;
+
+    box.classList.remove("video-active");
+    void box.offsetWidth;
+    box.classList.add("video-active");
+
+    const playPromise = video.play();
+    if (playPromise !== undefined) {
+        playPromise.catch(error => console.log("Video oynatılamadı:", error));
+    }
+}
+
+function hideVideo(type) {
+    const isComing = type === "coming";
+    const box = $(isComing ? "leftVideoBox" : "rightVideoBox");
+    const video = isComing ? comingVideo : notComingVideo;
+
+    if (box) box.classList.remove("video-active");
+    if (video) {
+        video.pause();
+        video.currentTime = 0;
+    }
+}
+
+/* ---------- SES ---------- */
+
+function setupAudio() {
+    mainAudio = new Audio("arka.mp3");
+    mainAudio.loop = true;
+    mainAudio.volume = 0.18;
+    audioStarted = false;
+    updateAudioButton(false);
+    on("audioButton", "click", toggleMainAudio);
+}
+
+function toggleMainAudio() {
+    if (!mainAudio) return;
+
+    if (audioStarted) {
+        mainAudio.pause();
+        audioStarted = false;
+        updateAudioButton(false);
         return;
     }
 
-    panel.classList.remove("hidden");
-    nameElement.textContent = selectedPlayer;
-    updateButtonStates();
+    mainAudio.play()
+        .then(() => {
+            audioStarted = true;
+            updateAudioButton(true);
+        })
+        .catch(error => console.log("Arka plan sesi oynatılamadı:", error));
 }
 
-function updateButtonStates() {
-    if (!selectedPlayer) return;
-
-    const status = playerStatuses[selectedPlayer] || "";
-
-    const comingButton = document.getElementById("comingButton");
-    const notComingButton = document.getElementById("notComingButton");
-    const paymentButton = document.getElementById("paymentButton");
-
-    comingButton.classList.toggle("active", status === "Geliyorum");
-    notComingButton.classList.toggle("active", status === "Gelemiyorum");
-
-    const full = getComingPlayers().length >= MAX_PLAYERS;
-
-    if (full && status !== "Geliyorum") {
-        comingButton.disabled = true;
-        paymentButton.disabled = true;
-    } else {
-        comingButton.disabled = false;
-        paymentButton.disabled = false;
-    }
-
-    if (playerPayments[selectedPlayer] === "Ödendi") {
-        paymentButton.disabled = true;
-        paymentButton.innerHTML = "✅ Ödeme Alındı";
-    } else {
-        paymentButton.innerHTML = "💳 Ödemeyi Yaptım <small>150 TL</small>";
-    }
+function updateAudioButton(active) {
+    const button = $("audioButton");
+    if (button) button.textContent = active ? "🔊" : "🔇";
 }
 
-/* =========================================
-   YOKLAMA VERİSİ YÜKLE
-========================================= */
+/* ---------- VERİ YÜKLE ---------- */
 
 function loadData() {
     if (dataLoading) return;
     dataLoading = true;
 
-    const callbackName = "sheetCallback_" + Date.now();
+    const callbackName = "attendanceCallback_" + Date.now();
+    const script = document.createElement("script");
 
     window[callbackName] = function (data) {
         try {
-            updatePlayers(data);
-            updateCounters();
-            updateAttendanceLists();
-            updatePaymentProgress();
-            updateWeeklyStats();
-            updateAdminSummary();
-            updateTeams();
+            if (!clearingWeek) updatePlayers(data);
             hideLoading();
-            updateLastUpdate();
+            hideConnectionError();
         } catch (error) {
             console.error(error);
             showConnectionError();
         } finally {
             dataLoading = false;
             delete window[callbackName];
+            if (script.parentNode) script.remove();
         }
     };
 
-    const script = document.createElement("script");
-    script.src = SCRIPT_URL + "?callback=" + callbackName + "&_=" + Date.now();
+    script.src = SCRIPT_URL + "?callback=" + callbackName + "&t=" + Date.now();
 
     script.onerror = function () {
         dataLoading = false;
         showConnectionError();
+        hideLoading();
+        if (script.parentNode) script.remove();
     };
 
     document.body.appendChild(script);
 }
 
-/* Code.gs: { success:true, players:[{isim, durum, tarih, odeme}] } */
 function updatePlayers(data) {
-    const list = data && Array.isArray(data.players) ? data.players : null;
-
-    if (!list) {
-        console.error("Beklenmeyen veri:", data);
-        return;
-    }
+    if (!data || !Array.isArray(data.players)) return;
 
     players.forEach(name => {
         playerStatuses[name] = "";
         playerPayments[name] = "";
     });
 
-    list.forEach(item => {
-        const name = findPlayerName(item.isim);
+    data.players.forEach(row => {
+        const name = String(row.isim || "").trim();
+        if (!players.includes(name)) return;
 
-        if (!name) {
-            console.warn("Eşleşmeyen isim:", item.isim);
-            return;
+        playerStatuses[name] = String(row.durum || "").trim();
+        playerPayments[name] = String(row.odeme || "").trim();
+
+        // Puan / mevki: az önce admin düzenlediyse sunucudaki eski değerle ezme
+        const recentlyEdited =
+            ratingEditedAt[name] && Date.now() - ratingEditedAt[name] < 10000;
+
+        if (!recentlyEdited) {
+            if (row.puan !== undefined && row.puan !== "" && row.puan !== null) {
+                playerProfiles[name].rating = clampRating(row.puan);
+            }
+            if (row.mevki) {
+                playerProfiles[name].position = String(row.mevki).trim();
+            }
         }
-
-        playerStatuses[name] = String(item.durum || "").trim();
-        playerPayments[name] = String(item.odeme || "").trim();
     });
 
-    updateSelectedPlayerUI();
+    saveLocalProfiles();
+
+    updateCounters();
+    updateAttendanceLists();
+    updatePaymentProgress();
+    updateWeeklyStats();
+    updateSelectedPlayer();
+    renderAdminPlayers();
+    updateAdminSummary();
+    updateProfileIfSelected();
+
+    const lastUpdate = $("lastUpdate");
+    if (lastUpdate) {
+        lastUpdate.textContent =
+            "Son kontrol: " +
+            new Date().toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
+    }
 }
 
-function updateSelectedPlayerUI() {
-    if (!selectedPlayer) return;
-
-    const select = document.getElementById("playerSelect");
-    if (select.value !== selectedPlayer) select.value = selectedPlayer;
-
-    updateButtonStates();
-}
-
-/* =========================================
-   LİSTELER
-========================================= */
+/* ---------- LİSTELER ---------- */
 
 function getComingPlayers() {
-    return players.filter(n => playerStatuses[n] === "Geliyorum");
+    return players.filter(name => playerStatuses[name] === "Geliyorum");
 }
 
 function getNotComingPlayers() {
-    return players.filter(n => playerStatuses[n] === "Gelemiyorum");
+    return players.filter(name => playerStatuses[name] === "Gelemiyorum");
 }
 
 function getWaitingPlayers() {
-    return players.filter(n =>
-        playerStatuses[n] !== "Geliyorum" && playerStatuses[n] !== "Gelemiyorum"
-    );
+    return players.filter(name => !playerStatuses[name]);
 }
 
 function getPaidPlayers() {
-    return players.filter(n => playerPayments[n] === "Ödendi");
+    return players.filter(
+        name => playerPayments[name] && playerPayments[name].toLowerCase().includes("öd")
+    );
 }
+
+/* ---------- SAYAÇLAR ---------- */
 
 function updateCounters() {
-    const coming = getComingPlayers().length;
-
-    document.getElementById("comingCount").textContent = `${coming}/${MAX_PLAYERS}`;
-    document.getElementById("notComingCount").textContent = getNotComingPlayers().length;
-    document.getElementById("waitingCount").textContent = getWaitingPlayers().length;
-
-    const fullElement = document.getElementById("capacityFull");
-    if (coming >= MAX_PLAYERS) fullElement.classList.remove("hidden");
-    else fullElement.classList.add("hidden");
-
-    updateButtonStates();
+    const coming = getComingPlayers();
+    setText("comingCount", coming.length);
+    setText("notComingCount", getNotComingPlayers().length);
+    setText("waitingCount", getWaitingPlayers().length);
+    setText("capacityFull", `${coming.length} / ${MAX_PLAYERS}`);
 }
 
-function renderPlayerList(elementId, names) {
-    const container = document.getElementById(elementId);
-    if (!container) return;
-
-    if (!names.length) {
-        container.innerHTML =
-            '<div class="player-list-item"><span class="player-dot"></span>Henüz kimse yok</div>';
-        return;
-    }
-
-    container.innerHTML = names.map(name =>
-        `<div class="player-list-item"><span class="player-dot"></span>${escapeHtml(name)}</div>`
-    ).join("");
+function renderTags(id, list, emptyText) {
+    const el = $(id);
+    if (!el) return;
+    el.innerHTML = list.length
+        ? list.map(name => `<span class="player-tag">${escapeHtml(name)}</span>`).join("")
+        : emptyText;
 }
 
 function updateAttendanceLists() {
-    const coming = getComingPlayers();
-    const notComing = getNotComingPlayers();
-    const waiting = getWaitingPlayers();
-
-    renderPlayerList("comingList", coming);
-    renderPlayerList("notComingList", notComing);
-    renderPlayerList("waitingList", waiting);
-
-    document.getElementById("comingListCount").textContent = coming.length;
-    document.getElementById("notComingListCount").textContent = notComing.length;
-    document.getElementById("waitingListCount").textContent = waiting.length;
+    renderTags("comingList", getComingPlayers(), "Henüz kimse katılım bildirmedi.");
+    renderTags("notComingList", getNotComingPlayers(), "Henüz cevap veren yok.");
+    renderTags("waitingList", getWaitingPlayers(), "Herkes cevap verdi.");
 }
+
+/* ---------- ÖDEME DURUMU ---------- */
 
 function updatePaymentProgress() {
     const paid = getPaidPlayers();
-    const percentage = Math.min(100, (paid.length / MAX_PLAYERS) * 100);
 
-    document.getElementById("paymentCount").textContent = `${paid.length}/${MAX_PLAYERS}`;
-    document.getElementById("paymentProgress").style.width = percentage + "%";
+    setText("paymentCount", `${paid.length} / ${MAX_PLAYERS}`);
 
-    const paymentNames = document.getElementById("paymentNames");
+    const bar = $("paymentProgress");
+    if (bar) {
+        bar.style.width = Math.min((paid.length / MAX_PLAYERS) * 100, 100) + "%";
+    }
 
-    if (!paid.length) {
-        paymentNames.textContent = "Henüz ödeme yapan yok.";
-    } else {
-        paymentNames.innerHTML = "Ödeyenler: " +
-            paid.map(n => `<strong>${escapeHtml(n)}</strong>`).join(" • ");
+    setText("paymentNames", paid.length ? paid.join(" • ") : "Henüz ödeme bildiren yok.");
+}
+
+/* ---------- HAFTALIK İSTATİSTİK ---------- */
+
+function updateWeeklyStats() {
+    const coming = getComingPlayers();
+
+    setText("statTotalPlayers", players.length);
+    setText("statComing", coming.length);
+    setText("statPaid", getPaidPlayers().length);
+    setText("statWaiting", getWaitingPlayers().length);
+
+    const highlight = $("weeklyHighlight");
+    if (highlight) {
+        highlight.textContent =
+            coming.length >= MAX_PLAYERS
+                ? "🏆 Kadro doldu! Bu haftanın maçı için 14 kişilik kontenjan tamamlandı."
+                : `⚽ Şu anda ${coming.length} kişi maça katılıyor. ` +
+                  `${Math.max(MAX_PLAYERS - coming.length, 0)} kişilik yer kaldı.`;
     }
 }
 
-/* =========================================
-   DURUM / ÖDEME
-========================================= */
+/* ---------- SEÇİLİ OYUNCU ---------- */
+
+function showSelectedPlayer() {
+    const select = $("playerSelect");
+    if (!select) return;
+
+    selectedPlayer = select.value;
+
+    const panel = $("selectedPlayerPanel");
+
+    if (!selectedPlayer) {
+        if (panel) panel.classList.add("hidden");
+        return;
+    }
+
+    if (panel) panel.classList.remove("hidden");
+    updateSelectedPlayer();
+}
+
+function updateSelectedPlayer() {
+    if (!selectedPlayer) return;
+
+    setText("selectedPlayerName", selectedPlayer);
+
+    const status = playerStatuses[selectedPlayer];
+    const paid = !!playerPayments[selectedPlayer];
+
+    const statusElement = $("selectedPlayerStatus");
+    const paymentElement = $("selectedPaymentStatus");
+    const comingButton = $("comingButton");
+    const notComingButton = $("notComingButton");
+    const paymentButton = $("paymentButton");
+
+    /* ----- Katılım durumu ----- */
+
+    const isComing = status === "Geliyorum";
+    const isNotComing = status === "Gelemiyorum";
+
+    if (statusElement) {
+        statusElement.textContent =
+            isComing ? "🟢 Geliyorum" :
+            isNotComing ? "🔴 Gelemiyorum" :
+            "⚪ Cevap vermedi";
+
+        statusElement.className =
+            isComing ? "status-coming" :
+            isNotComing ? "status-not-coming" :
+            "status-waiting";
+
+        // Durum kutusunun kendisi de yeşil / kırmızı olur
+        const box = statusElement.closest(".status-info");
+        if (box) {
+            box.classList.toggle("is-coming", isComing);
+            box.classList.toggle("is-not-coming", isNotComing);
+        }
+    }
+
+    // Butonlar: seçili olan renkli, diğeri soluk
+    if (comingButton) {
+        comingButton.classList.toggle("selected", isComing);
+        comingButton.classList.toggle("dimmed", isNotComing);
+    }
+
+    if (notComingButton) {
+        notComingButton.classList.toggle("selected", isNotComing);
+        notComingButton.classList.toggle("dimmed", isComing);
+    }
+
+    /* ----- Ödeme durumu ----- */
+
+    if (paymentElement) {
+        paymentElement.textContent = paid
+            ? "🟢 Ödeme yapıldı."
+            : "Henüz ödeme bildirilmedi.";
+
+        paymentElement.className = paid ? "payment-done" : "";
+
+        const payBox = paymentElement.closest(".status-info");
+        if (payBox) payBox.classList.toggle("is-paid", paid);
+    }
+
+    if (paymentButton) {
+        paymentButton.classList.toggle("paid", paid);
+        paymentButton.disabled = paid;
+        paymentButton.textContent = paid ? "🟢 Ödeme Yapıldı" : "💳 Ödemeyi Yaptım";
+    }
+}
+
+/* ---------- DURUM GÖNDER ---------- */
 
 function setStatus(status) {
     if (!selectedPlayer) {
@@ -333,34 +501,29 @@ function setStatus(status) {
     }
 
     if (actionInProgress) return;
-
-    const coming = getComingPlayers().length;
-    const oldStatus = playerStatuses[selectedPlayer] || "";
-
-    if (status === "Geliyorum" && oldStatus !== "Geliyorum" && coming >= MAX_PLAYERS) {
-        alert("14 kişilik kontenjan dolu.");
-        return;
-    }
-
     actionInProgress = true;
+
+    if (status === "Geliyorum") playActionVideo("coming");
+    else if (status === "Gelemiyorum") playActionVideo("notComing");
 
     playerStatuses[selectedPlayer] = status;
 
-    if (status === "Gelemiyorum") playerPayments[selectedPlayer] = "";
-
     updateCounters();
     updateAttendanceLists();
-    updatePaymentProgress();
     updateWeeklyStats();
+    updateSelectedPlayer();
+    renderAdminPlayers();
+    updateAdminSummary();
 
-    if (status === "Geliyorum") playKatilimSound();
-    else if (status === "Gelemiyorum") playHaftayaBeklerizSound();
+    sendPost({ isim: selectedPlayer, durum: status }, () => {});
 
-    sendPost({ isim: selectedPlayer, durum: status }, function () {
-        setTimeout(loadData, 400);
+    setTimeout(() => {
         actionInProgress = false;
-    });
+        loadData();
+    }, 900);
 }
+
+/* ---------- ÖDEME ---------- */
 
 function setPayment() {
     if (!selectedPlayer) {
@@ -370,36 +533,70 @@ function setPayment() {
 
     if (actionInProgress) return;
 
-    const coming = getComingPlayers().length;
-    const oldStatus = playerStatuses[selectedPlayer] || "";
-
-    if (oldStatus !== "Geliyorum" && coming >= MAX_PLAYERS) {
-        alert("14 kişilik kontenjan dolu.");
-        return;
-    }
-
-    if (playerPayments[selectedPlayer] === "Ödendi") {
-        alert("Bu oyuncunun ödemesi zaten kayıtlı.");
-        return;
-    }
+    if (!confirm(`💳 ${MATCH_FEE} TL ödeme yaptığınızı onaylıyor musunuz?`)) return;
 
     actionInProgress = true;
 
-    playerStatuses[selectedPlayer] = "Geliyorum";
-    playerPayments[selectedPlayer] = "Ödendi";
+    const name = selectedPlayer;
+
+    // Ödeme bildirildiğinde oyuncu otomatik "Geliyorum" olur
+    playerStatuses[name] = "Geliyorum";
+    playerPayments[name] = "Ödendi";
 
     updateCounters();
     updateAttendanceLists();
     updatePaymentProgress();
     updateWeeklyStats();
+    updateSelectedPlayer();
+    renderAdminPlayers();
+    updateAdminSummary();
 
-    playKatilimSound();
+    sendPost(
+        {
+            action: "payment",
+            isim: name,
+            durum: "Geliyorum",
+            odeme: "Ödendi"
+        },
+        error => {
+            if (error) {
+                playerPayments[name] = "";
+                updatePaymentProgress();
+                updateWeeklyStats();
+                updateSelectedPlayer();
+                alert("❌ Ödeme kaydedilemedi, tekrar dene.");
+            }
+        }
+    );
 
-    sendPost({ action: "payment", isim: selectedPlayer }, function () {
-        setTimeout(loadData, 400);
+    setTimeout(() => {
         actionInProgress = false;
-    });
+        loadData();
+    }, 1500);
 }
+
+/* ---------- SEÇİLİ OYUNCU TEMİZLE ---------- */
+
+function clearSelectedPlayer() {
+    if (!selectedPlayer) return;
+
+    if (!confirm(`${selectedPlayer} için durumu temizlemek istediğine emin misin?`)) return;
+
+    playerStatuses[selectedPlayer] = "";
+    playerPayments[selectedPlayer] = "";
+
+    updateCounters();
+    updateAttendanceLists();
+    updatePaymentProgress();
+    updateWeeklyStats();
+    updateSelectedPlayer();
+
+    sendPost({ isim: selectedPlayer, durum: "", odeme: "" }, () => {});
+
+    setTimeout(loadData, 900);
+}
+
+/* ---------- POST ---------- */
 
 function sendPost(payload, callback) {
     fetch(SCRIPT_URL, {
@@ -408,631 +605,58 @@ function sendPost(payload, callback) {
         headers: { "Content-Type": "text/plain;charset=utf-8" },
         body: JSON.stringify(payload)
     })
-        .then(() => { if (callback) callback(); })
-        .catch(error => {
-            console.error("POST Hatası:", error);
+        .then(() => {
             if (callback) callback();
+        })
+        .catch(error => {
+            console.error("POST hatası:", error);
+            if (callback) callback(error);
         });
 }
 
-/* =========================================
-   YENİ HAFTA
-========================================= */
-
-function clearWeek() {
-    if (clearingWeek) return;
-
-    const password = prompt("Yönetici şifresini gir:");
-    if (password === null) return;
-
-    if (password !== ADMIN_PASSWORD) {
-        alert("Hatalı şifre!");
-        return;
-    }
-
-    const confirmClear = confirm(
-        "Yeni haftayı başlatmak istediğine emin misin?\n\nBu haftanın verileri geçmiş maçlara arşivlenecek ve mevcut katılım/ödeme bilgileri temizlenecek."
-    );
-
-    if (!confirmClear) return;
-
-    clearingWeek = true;
-
-    const button = document.getElementById("clearButton");
-    button.disabled = true;
-    button.textContent = "⏳ Hafta arşivleniyor...";
-
-    const coming = getComingPlayers();
-    const notComing = getNotComingPlayers();
-    const waiting = getWaitingPlayers();
-    const paid = getPaidPlayers();
-
-    let teams = null;
-    if (coming.length === MAX_PLAYERS) teams = createBalancedTeams(coming);
-
-    /* Code.gs saveArchive Türkçe anahtarlar bekliyor */
-    const archive = {
-        tarih: new Date().toISOString(),
-        katilanlar: coming,
-        gelmeyenler: notComing,
-        bekleyenler: waiting,
-        odeyenler: paid,
-        takimA: teams ? teams.teamA : [],
-        takimB: teams ? teams.teamB : [],
-        takimAPuan: teams ? getTeamRating(teams.teamA) : 0,
-        takimBPuan: teams ? getTeamRating(teams.teamB) : 0
-    };
-
-    sendPost({ action: "clear", password: password, archive: archive }, function () {
-        players.forEach(name => {
-            playerStatuses[name] = "";
-            playerPayments[name] = "";
-        });
-
-        selectedPlayer = "";
-        document.getElementById("playerSelect").value = "";
-
-        showSelectedPlayer();
-        updateCounters();
-        updateAttendanceLists();
-        updatePaymentProgress();
-        updateWeeklyStats();
-        updateTeams();
-
-        button.disabled = false;
-        button.textContent = "🔄 Yeni Haftayı Başlat";
-        clearingWeek = false;
-
-        setTimeout(loadData, 600);
-        setTimeout(loadHistory, 700);
-
-        alert("Yeni hafta başlatıldı.\n\nBu haftanın bilgileri geçmiş maçlara kaydedildi.");
-    });
-}
-function deleteHistory() {
-
-    const password = prompt("Yönetici şifresini gir:");
-    if (password === null) return;
-
-    if (password !== ADMIN_PASSWORD) {
-        alert("Hatalı şifre!");
-        return;
-    }
-
-    const confirmDelete = confirm(
-        "TÜM geçmiş maç arşivi kalıcı olarak silinecek.\n\nBu işlem geri alınamaz. Emin misin?"
-    );
-
-    if (!confirmDelete) return;
-
-    const button = document.getElementById("deleteHistoryButton");
-    button.disabled = true;
-    button.textContent = "⏳ Arşiv siliniyor...";
-
-    sendPost({ action: "deleteHistory", password: password }, function () {
-
-        historyData = [];
-        renderHistory();
-        updateProfileIfSelected();
-
-        button.disabled = false;
-        button.textContent = "🗑️ Tüm Arşivi Sil";
-
-        setTimeout(loadHistory, 800);
-
-        alert("Tüm geçmiş arşiv silindi.");
-
-    });
-}
-
-
-/* =========================================
-   PROFİLLER
-========================================= */
-
-/* Code.gs: { success:true, profiles:{ isim:{isim,mevki,puan} } } */
-function loadProfiles() {
-    const callbackName = "profileCallback_" + Date.now();
-
-    window[callbackName] = function (data) {
-        try {
-            if (data && data.profiles) {
-                playerProfiles = {};
-
-                Object.keys(data.profiles).forEach(key => {
-                    const profile = data.profiles[key];
-                    const name = findPlayerName(key) || key;
-
-                    playerProfiles[name] = {
-                        mevki: profile.mevki || "Orta Saha",
-                        puan: Number(profile.puan) || 5
-                    };
-                });
-
-                renderAdminPlayers();
-                updateTeams();
-            }
-        } catch (error) {
-            console.error(error);
-        } finally {
-            delete window[callbackName];
-        }
-    };
-
-    const script = document.createElement("script");
-    script.src = SCRIPT_URL + "?action=profiles&callback=" + callbackName + "&_=" + Date.now();
-    document.body.appendChild(script);
-}
-
-function renderPlayerProfile(name) {
-    const card = document.getElementById("profileCard");
-
-    if (!name) {
-        card.classList.add("hidden");
-        return;
-    }
-
-    const profile = playerProfiles[name] || { mevki: "Orta Saha", puan: 5 };
-
-    const attended = historyData.filter(week =>
-        Array.isArray(week.coming) && week.coming.includes(name)
-    ).length;
-
-    const paid = historyData.filter(week =>
-        Array.isArray(week.paid) && week.paid.includes(name)
-    ).length;
-
-    const currentAttendance = playerStatuses[name] === "Geliyorum";
-
-    card.classList.remove("hidden");
-
-    card.innerHTML = `
-        <div class="profile-top">
-            <div class="profile-avatar">⚽</div>
-            <div>
-                <div class="profile-name">${escapeHtml(name)}</div>
-                <div class="profile-position">${escapeHtml(profile.mevki)}</div>
-            </div>
-            <div class="profile-rating">
-                <strong>${profile.puan}</strong>
-                <span>PUAN</span>
-            </div>
-        </div>
-        <div class="profile-stat-grid">
-            <div class="profile-stat"><strong>${attended}</strong><span>Geçmiş Katılım</span></div>
-            <div class="profile-stat"><strong>${paid}</strong><span>Ödeme</span></div>
-            <div class="profile-stat"><strong>${currentAttendance ? "✓" : "—"}</strong><span>Bu Hafta</span></div>
-        </div>
-    `;
-}
-
-/* =========================================
-   ADMIN
-========================================= */
-
-function openAdminPanel() {
-    const password = prompt("Yönetici şifresini gir:");
-    if (password === null) return;
-
-    if (password !== ADMIN_PASSWORD) {
-        alert("Hatalı şifre!");
-        return;
-    }
-
-    document.getElementById("adminPanel").classList.remove("hidden");
-    renderAdminPlayers();
-    updateAdminSummary();
-}
-
-function closeAdminPanel() {
-    document.getElementById("adminPanel").classList.add("hidden");
-}
-
-function renderAdminPlayers() {
-    const container = document.getElementById("adminPlayers");
-    if (!container) return;
-
-    container.innerHTML = "";
-
-    players.forEach(name => {
-        const profile = playerProfiles[name] || { mevki: "Orta Saha", puan: 5 };
-
-        const row = document.createElement("div");
-        row.className = "admin-player-row";
-
-        const nameElement = document.createElement("div");
-        nameElement.className = "admin-player-name";
-        nameElement.textContent = name;
-        row.appendChild(nameElement);
-
-        const select = document.createElement("select");
-        positions.forEach(position => {
-            const option = document.createElement("option");
-            option.value = position;
-            option.textContent = position;
-            if (position === profile.mevki) option.selected = true;
-            select.appendChild(option);
-        });
-        row.appendChild(select);
-
-        const input = document.createElement("input");
-        input.type = "number";
-        input.min = "1";
-        input.max = "10";
-        input.value = profile.puan;
-        row.appendChild(input);
-
-        const saveButton = document.createElement("button");
-        saveButton.className = "save-player-button";
-        saveButton.textContent = "Kaydet";
-        saveButton.addEventListener("click", function () {
-            savePlayerProfile(name, select.value, input.value, saveButton);
-        });
-        row.appendChild(saveButton);
-
-        container.appendChild(row);
-    });
-}
-
-function savePlayerProfile(name, mevki, puan, button) {
-    const password = prompt("Yönetici şifresini gir:");
-    if (password === null) return;
-
-    if (password !== ADMIN_PASSWORD) {
-        alert("Hatalı şifre!");
-        return;
-    }
-
-    puan = Number(puan);
-
-    if (isNaN(puan) || puan < 1 || puan > 10) {
-        alert("Puan 1 ile 10 arasında olmalı.");
-        return;
-    }
-
-    button.disabled = true;
-    button.textContent = "...";
-
-    sendPost(
-        { action: "savePlayer", password: password, isim: name, mevki: mevki, puan: puan },
-        function () {
-            playerProfiles[name] = { mevki: mevki, puan: puan };
-
-            button.disabled = false;
-            button.textContent = "Kaydedildi ✓";
-
-            updateTeams();
-            renderPlayerProfile(document.getElementById("profileSelect").value);
-
-            setTimeout(() => { button.textContent = "Kaydet"; }, 1200);
-        }
-    );
-}
-
-function updateAdminSummary() {
-    const coming = getComingPlayers().length;
-    const paid = getPaidPlayers().length;
-
-    const comingElement = document.getElementById("adminComingCount");
-    const paidElement = document.getElementById("adminPaidCount");
-
-    if (comingElement) comingElement.textContent = `${coming} / ${MAX_PLAYERS}`;
-    if (paidElement) paidElement.textContent = `${paid} / ${MAX_PLAYERS}`;
-}
-
-/* =========================================
-   TAKIMLAR
-========================================= */
-
-function updateTeams() {
-    const comingPlayers = getComingPlayers();
-    const grid = document.getElementById("teamsGrid");
-    if (!grid) return;
-
-    if (comingPlayers.length !== MAX_PLAYERS) {
-        grid.innerHTML = `
-            <div class="empty-team-card">
-                <div class="empty-team-icon">⚽</div>
-                <h3>Takımlar bekleniyor</h3>
-                <p>Otomatik 7v7 takım oluşturmak için 14 kişinin de <strong>Geliyorum</strong> demesi gerekiyor.</p>
-                <div class="team-wait-count">${comingPlayers.length}/14</div>
-            </div>
-        `;
-        return;
-    }
-
-    renderTeams(createBalancedTeams(comingPlayers));
-}
-
-function createBalancedTeams(playerNames) {
-    const allPlayers = playerNames.map(name => {
-        const profile = playerProfiles[name] || { mevki: "Orta Saha", puan: 5 };
-        return {
-            isim: name,
-            mevki: profile.mevki,
-            puan: Number(profile.puan) || 5
-        };
-    });
-
-    const combinations = getCombinations(allPlayers, 7);
-
-    let bestTeams = null;
-    let bestScore = Infinity;
-
-    combinations.forEach(teamA => {
-        const teamANames = new Set(teamA.map(p => p.isim));
-        const teamB = allPlayers.filter(p => !teamANames.has(p.isim));
-        const score = calculateTeamScore(teamA, teamB);
-
-        if (score < bestScore) {
-            bestScore = score;
-            bestTeams = { teamA: teamA, teamB: teamB };
-        }
-    });
-
-    return bestTeams;
-}
-
-function getCombinations(array, size) {
-    const result = [];
-
-    function combine(start, current) {
-        if (current.length === size) {
-            result.push([...current]);
-            return;
-        }
-
-        for (let i = start; i < array.length; i++) {
-            current.push(array[i]);
-            combine(i + 1, current);
-            current.pop();
-        }
-    }
-
-    combine(0, []);
-    return result;
-}
-
-function calculateTeamScore(teamA, teamB) {
-    let score = Math.abs(getTeamRating(teamA) - getTeamRating(teamB)) * 100;
-
-    positions.forEach(position => {
-        const countA = teamA.filter(p => p.mevki === position).length;
-        const countB = teamB.filter(p => p.mevki === position).length;
-        score += Math.abs(countA - countB) * 25;
-    });
-
-    const gkA = teamA.filter(p => p.mevki === "Kaleci").length;
-    const gkB = teamB.filter(p => p.mevki === "Kaleci").length;
-    score += Math.abs(gkA - gkB) * 80;
-
-    return score;
-}
-
-function getTeamRating(team) {
-    return team.reduce((sum, p) => sum + Number(p.puan || 0), 0);
-}
-
-function sortPlayersByPosition(playersArray) {
-    const order = { "Kaleci": 1, "Defans": 2, "Orta Saha": 3, "Forvet": 4 };
-    return [...playersArray].sort((a, b) => order[a.mevki] - order[b.mevki]);
-}
-
-function renderTeams(teams) {
-    const grid = document.getElementById("teamsGrid");
-
-    const teamA = sortPlayersByPosition(teams.teamA);
-    const teamB = sortPlayersByPosition(teams.teamB);
-
-    grid.innerHTML = `
-        <div class="team-card team-a">
-            <div class="team-header">
-                <div class="team-name">🟢 TAKIM A</div>
-                <div class="team-total">${getTeamRating(teamA)} puan</div>
-            </div>
-            <div class="team-players">${createTeamPlayersHTML(teamA)}</div>
-        </div>
-        <div class="team-card team-b">
-            <div class="team-header">
-                <div class="team-name">🟡 TAKIM B</div>
-                <div class="team-total">${getTeamRating(teamB)} puan</div>
-            </div>
-            <div class="team-players">${createTeamPlayersHTML(teamB)}</div>
-        </div>
-    `;
-}
-
-function createTeamPlayersHTML(team) {
-    return team.map((player, index) => `
-        <div class="team-player">
-            <div class="team-player-left">
-                <div class="team-player-number">${index + 1}</div>
-                <div>
-                    <div class="team-player-name">${escapeHtml(player.isim)}</div>
-                    <div class="team-player-position">${escapeHtml(player.mevki)}</div>
-                </div>
-            </div>
-        </div>
-    `).join("");
-}
-
-function generateTeams() {
-    if (getComingPlayers().length !== MAX_PLAYERS) {
-        alert("Takım oluşturmak için tam 14 kişi Geliyorum olmalı.");
-        return;
-    }
-
-    updateTeams();
-    document.getElementById("teamsSection").scrollIntoView({ behavior: "smooth" });
-}
-
-/* =========================================
-   GEÇMİŞ
-========================================= */
-
-/* Code.gs: { success:true, history:[{tarih,katilanlar,odeyenler,takimA,takimB,...}] } */
-function loadHistory() {
-    const callbackName = "historyCallback_" + Date.now();
-
-    window[callbackName] = function (data) {
-        try {
-            if (data && Array.isArray(data.history)) {
-                historyData = data.history.map(h => ({
-                    date: h.tarih,
-                    coming: h.katilanlar,
-                    paid: h.odeyenler,
-                    teamA: h.takimA,
-                    teamB: h.takimB,
-                    teamARating: h.takimAPuan,
-                    teamBRating: h.takimBPuan,
-                    notComing: h.gelmeyenler,
-                    waiting: h.bekleyenler
-                }));
-
-                renderHistory();
-                updateProfileIfSelected();
-            }
-        } catch (error) {
-            console.error(error);
-        } finally {
-            delete window[callbackName];
-        }
-    };
-
-    const script = document.createElement("script");
-    script.src = SCRIPT_URL + "?action=history&callback=" + callbackName + "&_=" + Date.now();
-    document.body.appendChild(script);
-}
-
-function historyTeamText(team) {
-    if (!team.length) return "Takım bilgisi yok";
-
-    return team.map(p =>
-        escapeHtml(typeof p === "string" ? p : p.isim)
-    ).join(" • ");
-}
-
-function renderHistory() {
-    const container = document.getElementById("historyList");
-    if (!container) return;
-
-    if (!historyData.length) {
-        container.innerHTML = `
-            <div class="history-empty">
-                📅 Henüz geçmiş maç bulunmuyor.<br>
-                İlk hafta tamamlandığında burada görünecek.
-            </div>
-        `;
-        return;
-    }
-
-    container.innerHTML = historyData.slice().reverse().map(week => {
-        const teamA = Array.isArray(week.teamA) ? week.teamA : [];
-        const teamB = Array.isArray(week.teamB) ? week.teamB : [];
-        const coming = Array.isArray(week.coming) ? week.coming : [];
-
-        return `
-            <div class="history-card">
-                <div class="history-card-top">
-                    <div class="history-date">📅 ${formatHistoryDate(week.date)}</div>
-                    <div class="history-count">${coming.length} katılımcı</div>
-                </div>
-                <div class="history-teams">
-                    <div class="history-team">
-                        <strong>🟢 Takım A ${Number(week.teamARating) || 0} puan</strong>
-                        ${historyTeamText(teamA)}
-                    </div>
-                    <div class="history-team">
-                        <strong>🟡 Takım B ${Number(week.teamBRating) || 0} puan</strong>
-                        ${historyTeamText(teamB)}
-                    </div>
-                </div>
-            </div>
-        `;
-    }).join("");
-}
-
-function formatHistoryDate(value) {
-    if (!value) return "-";
-
-    const date = new Date(value);
-    if (isNaN(date.getTime())) return String(value);
-
-    return date.toLocaleDateString("tr-TR", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric"
-    });
-}
-
-function updateProfileIfSelected() {
-    const select = document.getElementById("profileSelect");
-    if (select && select.value) renderPlayerProfile(select.value);
-}
-
-/* =========================================
-   HAFTALIK İSTATİSTİK
-========================================= */
-
-function updateWeeklyStats() {
-    const coming = getComingPlayers().length;
-
-    document.getElementById("statTotalPlayers").textContent = players.length;
-    document.getElementById("statComing").textContent = coming;
-    document.getElementById("statPaid").textContent = getPaidPlayers().length;
-    document.getElementById("statWaiting").textContent = getWaitingPlayers().length;
-
-    const highlight = document.getElementById("weeklyHighlight");
-
-    if (coming === MAX_PLAYERS) {
-        highlight.innerHTML = "🔥 <strong>Maç kadrosu tamamlandı!</strong> 14 kişilik kadro hazır.";
-    } else if (coming > 0) {
-        highlight.innerHTML = `⚽ Kadro için <strong>${MAX_PLAYERS - coming} kişi</strong> daha gerekiyor.`;
-    } else {
-        highlight.innerHTML = "👥 Henüz katılım bildirimi yapılmadı.";
-    }
-}
-
-/* =========================================
-   IBAN
-========================================= */
+/* ---------- IBAN KOPYALA ---------- */
 
 function copyIban() {
-    const iban = document.getElementById("ibanText").textContent.trim();
+    const ibanText = $("ibanText");
+    if (!ibanText) return;
 
-    navigator.clipboard.writeText(iban)
+    const iban = ibanText.dataset.iban || ibanText.textContent.trim();
+    if (!iban) return;
+
+    navigator.clipboard
+        .writeText(iban)
         .then(() => {
-            const button = document.getElementById("copyIbanButton");
+            const button = $("copyIbanButton");
+            if (!button) return;
+
             const oldText = button.textContent;
-            button.textContent = "✅ Kopyalandı";
-            setTimeout(() => { button.textContent = oldText; }, 1500);
+            button.textContent = "✓ Kopyalandı";
+            button.classList.add("copied");
+            setTimeout(() => {
+                button.textContent = oldText;
+                button.classList.remove("copied");
+            }, 1600);
         })
-        .catch(() => { alert("IBAN: " + iban); });
+        .catch(error => console.error(error));
 }
 
-/* =========================================
-   GERİ SAYIM
-========================================= */
+/* ---------- GERİ SAYIM ---------- */
 
 function getNextMatchDate() {
     const now = new Date();
-    const target = new Date(now);
-    const day = now.getDay();
+    const next = new Date(now);
 
-    let daysUntilTuesday = (2 - day + 7) % 7;
+    // Salı = 2
+    let daysUntil = (2 - now.getDay() + 7) % 7;
 
-    if (
-        daysUntilTuesday === 0 &&
-        (now.getHours() > 22 ||
-            (now.getHours() === 22 && (now.getMinutes() > 0 || now.getSeconds() > 0)))
-    ) {
-        daysUntilTuesday = 7;
+    if (daysUntil === 0 && now.getHours() >= 22) {
+        daysUntil = 7;
     }
 
-    target.setDate(now.getDate() + daysUntilTuesday);
-    target.setHours(22, 0, 0, 0);
+    next.setDate(now.getDate() + daysUntil);
+    next.setHours(22, 0, 0, 0);
 
-    return target;
+    return next;
 }
 
 function startCountdown() {
@@ -1041,133 +665,422 @@ function startCountdown() {
 }
 
 function updateCountdown() {
-    let difference = getNextMatchDate().getTime() - new Date().getTime();
-    if (difference < 0) difference = 0;
+    const diff = Math.max(getNextMatchDate().getTime() - Date.now(), 0);
+    const totalSeconds = Math.floor(diff / 1000);
 
-    const totalSeconds = Math.floor(difference / 1000);
+    const pad = n => String(n).padStart(2, "0");
 
-    document.getElementById("countDays").textContent = pad(Math.floor(totalSeconds / 86400));
-    document.getElementById("countHours").textContent = pad(Math.floor((totalSeconds % 86400) / 3600));
-    document.getElementById("countMinutes").textContent = pad(Math.floor((totalSeconds % 3600) / 60));
-    document.getElementById("countSeconds").textContent = pad(totalSeconds % 60);
-    document.getElementById("countdownText").textContent = "Sonraki maç: Salı 22:00";
+    setText("countDays", pad(Math.floor(totalSeconds / 86400)));
+    setText("countHours", pad(Math.floor((totalSeconds % 86400) / 3600)));
+    setText("countMinutes", pad(Math.floor((totalSeconds % 3600) / 60)));
+    setText("countSeconds", pad(totalSeconds % 60));
+    setText("countdownText", "Salı 22:00 maçına kalan süre");
 }
 
-function pad(number) {
-    return String(number).padStart(2, "0");
-}
+/* ---------- PROFİLLER (PUAN) ---------- */
 
-/* =========================================
-   SES
-========================================= */
-
-function setupAudio() {
-    mainAudio = new Audio("arka.mp3");
-    katilimAudio = new Audio("katilim.mp3");
-    haftayaBeklerizAudio = new Audio("haftaya-bekleriz.mp3");
-
-    mainAudio.loop = true;
-    mainAudio.volume = 0.20;
-    katilimAudio.volume = 0.75;
-    haftayaBeklerizAudio.volume = 0.75;
-
-    const audioButton = document.getElementById("audioButton");
-    if (audioButton) audioButton.addEventListener("click", toggleMainAudio);
-
-    audioStarted = false;
-    updateAudioButton(false);
-}
-
-function toggleMainAudio() {
-    if (!mainAudio) return;
-
-    if (mainAudio.paused) {
-        mainAudio.play()
-            .then(() => {
-                audioStarted = true;
-                updateAudioButton(true);
-            })
-            .catch(error => console.log("Ses başlatılamadı:", error));
-    } else {
-        mainAudio.pause();
-        audioStarted = false;
-        updateAudioButton(false);
+function saveLocalProfiles() {
+    try {
+        localStorage.setItem("halisaha_profiles", JSON.stringify(playerProfiles));
+    } catch (error) {
+        /* localStorage kapalıysa sorun değil */
     }
 }
 
-function updateAudioButton(isPlaying) {
-    const button = document.getElementById("audioButton");
-    if (!button) return;
+function loadLocalProfiles() {
+    try {
+        const raw = localStorage.getItem("halisaha_profiles");
+        if (!raw) return;
 
-    if (isPlaying) {
-        button.innerHTML = "🔊";
-        button.title = "Sesi Kapat";
-        button.classList.add("audio-playing");
-    } else {
-        button.innerHTML = "🔇";
-        button.title = "Sesi Aç";
-        button.classList.remove("audio-playing");
+        const saved = JSON.parse(raw);
+
+        players.forEach(name => {
+            if (!saved[name]) return;
+            playerProfiles[name].rating = clampRating(saved[name].rating);
+            if (saved[name].position) playerProfiles[name].position = saved[name].position;
+        });
+    } catch (error) {
+        /* bozuk kayıt varsa yok say */
     }
 }
 
-function playKatilimSound() {
-    if (!katilimAudio) return;
-    katilimAudio.currentTime = 0;
-    katilimAudio.play().catch(e => console.log("Katılım sesi oynatılamadı:", e));
+function loadProfiles() {
+    // Sheets'ten gelene kadar bu cihazdaki son kaydı göster
+    loadLocalProfiles();
 }
 
-function playHaftayaBeklerizSound() {
-    if (!haftayaBeklerizAudio) return;
-    haftayaBeklerizAudio.currentTime = 0;
-    haftayaBeklerizAudio.play().catch(e => console.log("Ses oynatılamadı:", e));
+function renderPlayerProfile() {
+    const select = $("profileSelect");
+    const card = $("profileCard");
+    if (!select || !card) return;
+
+    const name = select.value;
+
+    if (!name) {
+        card.innerHTML = `
+            <div class="profile-placeholder">
+                Oyuncu seçerek profilini görüntüleyebilirsin.
+            </div>`;
+        return;
+    }
+
+    const profile = playerProfiles[name];
+
+    card.innerHTML = `
+        <div class="profile-content">
+            <div class="profile-avatar">⚽</div>
+            <div>
+                <h3>${escapeHtml(name)}</h3>
+                <div class="profile-meta">
+                    <span>${escapeHtml(profile.position)}</span>
+                    <span>⭐ ${profile.rating}</span>
+                    <span>⚽ ${profile.matches} maç</span>
+                </div>
+            </div>
+        </div>`;
 }
 
-/* =========================================
-   BUTONLAR
-========================================= */
-
-function setupButtons() {
-    document.getElementById("comingButton").addEventListener("click", () => setStatus("Geliyorum"));
-    document.getElementById("notComingButton").addEventListener("click", () => setStatus("Gelemiyorum"));
-    document.getElementById("paymentButton").addEventListener("click", setPayment);
-    document.getElementById("clearButton").addEventListener("click", clearWeek);
-    document.getElementById("deleteHistoryButton").addEventListener("click", deleteHistory);
-    document.getElementById("adminOpenButton").addEventListener("click", openAdminPanel);
-    document.getElementById("adminCloseButton").addEventListener("click", closeAdminPanel);
-    document.getElementById("generateTeamsButton").addEventListener("click", generateTeams);
-    document.getElementById("adminGenerateTeams").addEventListener("click", generateTeams);
-    document.getElementById("copyIbanButton").addEventListener("click", copyIban);
+function updateProfileIfSelected() {
+    const select = $("profileSelect");
+    if (select && select.value) renderPlayerProfile();
 }
 
-/* =========================================
-   LOADING / HATA
-========================================= */
+/* ---------- ADMIN ---------- */
+
+function askAdminPassword(message) {
+    const password = prompt(message);
+
+    if (password === null) return false;
+
+    if (password !== ADMIN_PASSWORD) {
+        alert("Hatalı şifre.");
+        return false;
+    }
+
+    return true;
+}
+
+function openAdminPanel() {
+    if (!askAdminPassword("Admin şifresini gir:")) return;
+
+    const panel = $("adminPanel");
+    if (panel) panel.classList.remove("hidden");
+
+    renderAdminPlayers(true);
+    updateAdminSummary();
+}
+
+function closeAdminPanel() {
+    const panel = $("adminPanel");
+    if (panel) panel.classList.add("hidden");
+}
+
+function renderAdminPlayers(force) {
+    const container = $("adminPlayers");
+    if (!container) return;
+
+    // Admin bir kutuya yazarken otomatik yenileme odağı bozmasın
+    const active = document.activeElement;
+    if (
+        !force &&
+        active &&
+        container.contains(active) &&
+        (active.tagName === "INPUT" || active.tagName === "SELECT")
+    ) {
+        return;
+    }
+
+    container.innerHTML = players
+        .map(name => {
+            const status = playerStatuses[name];
+            const profile = playerProfiles[name];
+
+            let statusText = "⚪ Bekliyor";
+            let statusClass = "";
+
+            if (status === "Geliyorum") {
+                statusText = "🟢 Geliyor";
+                statusClass = "coming";
+            }
+
+            if (status === "Gelemiyorum") {
+                statusText = "🔴 Gelmiyor";
+                statusClass = "not-coming";
+            }
+
+            const options = POSITIONS.map(
+                p => `<option value="${p}" ${p === profile.position ? "selected" : ""}>${p}</option>`
+            ).join("");
+
+            return `
+                <div class="admin-player-row">
+                    <span class="admin-player-name">${escapeHtml(name)}</span>
+                    <div class="admin-rating-controls">
+                        <select class="admin-position-select" data-name="${escapeHtml(name)}" aria-label="Mevki">
+                            ${options}
+                        </select>
+                        <input
+                            class="admin-rating-input"
+                            type="number"
+                            min="1"
+                            max="100"
+                            inputmode="numeric"
+                            value="${profile.rating}"
+                            data-name="${escapeHtml(name)}"
+                            aria-label="Puan"
+                        >
+                        <span class="admin-player-status ${statusClass}">${statusText}</span>
+                    </div>
+                </div>`;
+        })
+        .join("");
+}
+
+function handleAdminRatingChange(event) {
+    const target = event.target;
+    const name = target.dataset ? target.dataset.name : "";
+
+    if (!name || !players.includes(name)) return;
+
+    const row = target.closest(".admin-player-row");
+    if (!row) return;
+
+    const ratingInput = row.querySelector(".admin-rating-input");
+    const positionSelect = row.querySelector(".admin-position-select");
+
+    const rating = clampRating(ratingInput.value);
+    const position = positionSelect.value;
+
+    ratingInput.value = rating;
+
+    playerProfiles[name].rating = rating;
+    playerProfiles[name].position = position;
+    ratingEditedAt[name] = Date.now();
+
+    saveLocalProfiles();
+    updateProfileIfSelected();
+
+    sendPost(
+        { action: "rating", isim: name, puan: rating, mevki: position },
+        error => {
+            if (error) {
+                alert("❌ Puan kaydedilemedi, tekrar dene.");
+                return;
+            }
+            row.classList.add("saved");
+            setTimeout(() => row.classList.remove("saved"), 1200);
+        }
+    );
+}
+
+function updateAdminSummary() {
+    setText("adminComingCount", getComingPlayers().length);
+    setText("adminPaidCount", getPaidPlayers().length);
+}
+
+/* ---------- TAKIM OLUŞTUR ---------- */
+
+function generateTeams() {
+    const coming = getComingPlayers();
+
+    if (coming.length < 2) {
+        alert("Takım oluşturmak için en az 2 kişi gelmeli.");
+        return;
+    }
+
+    const loading = $("teamsLoading");
+    if (loading) loading.classList.remove("hidden");
+
+    setTimeout(() => {
+        createBalancedTeams(coming);
+
+        if (loading) loading.classList.add("hidden");
+
+        const teamsSection = $("teamsSection");
+        if (teamsSection) {
+            teamsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+    }, 350);
+}
+
+/*
+   Puana göre dengeli dağıtım:
+   - Oyuncular puana göre büyükten küçüğe sıralanır
+     (küçük rastgelelik eklenir, her basışta farklı takım çıkar)
+   - Her oyuncu, toplam puanı düşük olan takıma gider
+   - Takım büyüklüğü farkı en fazla 1 kişidir
+*/
+function createBalancedTeams(names) {
+    const sorted = names
+        .map(name => ({
+            name,
+            rating: getRating(name),
+            position: playerProfiles[name].position,
+            sortKey: getRating(name) + Math.random() * 4
+        }))
+        .sort((a, b) => b.sortKey - a.sortKey);
+
+    const maxSize = Math.ceil(names.length / 2);
+
+    const teamA = [];
+    const teamB = [];
+    let sumA = 0;
+    let sumB = 0;
+
+    sorted.forEach(player => {
+        let toA;
+
+        if (teamA.length >= maxSize) toA = false;
+        else if (teamB.length >= maxSize) toA = true;
+        else if (sumA !== sumB) toA = sumA < sumB;
+        else toA = Math.random() < 0.5;
+
+        if (toA) {
+            teamA.push(player);
+            sumA += player.rating;
+        } else {
+            teamB.push(player);
+            sumB += player.rating;
+        }
+    });
+
+    renderTeams(teamA, teamB);
+}
+
+function renderTeamCard(title, team) {
+    const total = team.reduce((sum, p) => sum + p.rating, 0);
+    const average = team.length ? Math.round(total / team.length) : 0;
+
+    return `
+        <div class="team-card">
+            <h3>${title}</h3>
+            <div class="team-total">Toplam ${total} · Ortalama ${average}</div>
+            ${team
+                .map(
+                    (player, index) => `
+                        <div class="team-player">
+                            <span>${index + 1}. ${escapeHtml(player.name)}</span>
+                            <span>${escapeHtml(player.position)} · ⭐ ${player.rating}</span>
+                        </div>`
+                )
+                .join("")}
+        </div>`;
+}
+
+function renderTeams(teamA, teamB) {
+    const grid = $("teamsGrid");
+    if (!grid) return;
+
+    grid.innerHTML =
+        renderTeamCard("🟢 TAKIM YEŞİL", teamA) +
+        renderTeamCard("⚪ TAKIM BEYAZ", teamB);
+}
+
+/* ---------- GEÇMİŞ ---------- */
+
+function loadHistory() {
+    renderHistory();
+}
+
+function renderHistory() {
+    const container = $("historyList");
+    if (!container) return;
+
+    if (!historyData.length) {
+        container.innerHTML = `
+            <div class="history-item">
+                <div class="history-date">BU HAFTA</div>
+                <p>Bu haftanın maç geçmişi henüz oluşturulmadı.</p>
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = historyData
+        .map(
+            item => `
+                <div class="history-item">
+                    <div class="history-date">${escapeHtml(item.date || "")}</div>
+                    <p>${escapeHtml(item.text || "")}</p>
+                </div>`
+        )
+        .join("");
+}
+
+function deleteHistory() {
+    if (!askAdminPassword("Admin şifresini gir:")) return;
+
+    if (!confirm("Maç geçmişini temizlemek istediğine emin misin?")) return;
+
+    historyData = [];
+    renderHistory();
+}
+
+/* ---------- YENİ HAFTA ---------- */
+
+function clearWeek() {
+    if (clearingWeek) return;
+
+    if (!askAdminPassword("Yeni haftayı başlatmak için admin şifresini gir:")) return;
+
+    if (!confirm("Bu haftanın tüm katılım ve ödeme durumlarını temizlemek istediğine emin misin?\n\n(Oyuncu puanları silinmez.)")) return;
+
+    clearingWeek = true;
+
+    players.forEach(name => {
+        playerStatuses[name] = "";
+        playerPayments[name] = "";
+    });
+
+    updateCounters();
+    updateAttendanceLists();
+    updatePaymentProgress();
+    updateWeeklyStats();
+    updateSelectedPlayer();
+    renderAdminPlayers();
+    updateAdminSummary();
+
+    // Tek istekle her şeyi temizle (durum, ödeme, zaman, renkler). Puanlara dokunmaz.
+    sendPost({ action: "clear" }, error => {
+        if (error) {
+            alert("❌ Yeni hafta başlatılamadı, tekrar dene.");
+        }
+    });
+
+    // Sheets'in temizlemeyi bitirmesi için bekle, sonra veriyi tazele
+    setTimeout(() => {
+        clearingWeek = false;
+        loadData();
+        alert("Yeni hafta başlatıldı.");
+    }, 2000);
+}
+
+/* ---------- LOADING / HATA ---------- */
 
 function hideLoading() {
-    document.getElementById("loading").classList.add("hidden");
-    document.getElementById("connectionError").classList.add("hidden");
+    const loading = $("loading");
+    if (!loading) return;
+
+    loading.classList.add("loaded");
+
+    setTimeout(() => {
+        loading.style.display = "none";
+    }, 400);
 }
 
 function showConnectionError() {
-    document.getElementById("loading").classList.add("hidden");
-    document.getElementById("connectionError").classList.remove("hidden");
+    const error = $("connectionError");
+    if (error) error.classList.remove("hidden");
 }
 
-function updateLastUpdate() {
-    const time = new Date().toLocaleTimeString("tr-TR", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit"
-    });
-
-    document.getElementById("lastUpdate").textContent = "Son güncelleme: " + time;
+function hideConnectionError() {
+    const error = $("connectionError");
+    if (error) error.classList.add("hidden");
 }
 
-function escapeHtml(text) {
-    return String(text)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-}
+/* ---------- OTOMATİK YENİLEME ---------- */
+
+setInterval(() => {
+    if (!clearingWeek && !actionInProgress && !dataLoading) {
+        loadData();
+    }
+}, 5000);
