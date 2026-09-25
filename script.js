@@ -1,4 +1,3 @@
-
 /* =========================================================
    BİZİM EKİP HALI SAHA
    Google Sheets + Apps Script
@@ -97,6 +96,8 @@ let audioStarted = false;
 let comingVideo = null;
 
 let notComingVideo = null;
+
+let paymentVideo = null;
 
 
 
@@ -484,9 +485,14 @@ function setupVideos() {
         $("notComingVideo");
 
 
+    paymentVideo =
+        $("paymentVideo");
+
+
     [
         comingVideo,
-        notComingVideo
+        notComingVideo,
+        paymentVideo
     ].forEach(
         v => {
 
@@ -516,84 +522,151 @@ function setupVideos() {
             () => hideVideo("notComing")
         );
     }
+
+
+    if (paymentVideo) {
+
+        paymentVideo.addEventListener(
+            "ended",
+            () => hideVideo("payment")
+        );
+    }
+}
+
+
+/*
+ * Her aksiyon tipinin hangi videoyu
+ * ve hangi kutuyu kullanacağını
+ * burada eşliyoruz.
+ *
+ * "coming" ve "payment" aynı
+ * (sol) kutuyu paylaşıyor,
+ * ama farklı video dosyaları var.
+ */
+
+function getVideoConfig(type) {
+
+    if (type === "coming") {
+
+        return {
+            video: comingVideo,
+            box: $("leftVideoBox")
+        };
+    }
+
+
+    if (type === "payment") {
+
+        return {
+            video: paymentVideo,
+            box: $("leftVideoBox")
+        };
+    }
+
+
+    if (type === "notComing") {
+
+        return {
+            video: notComingVideo,
+            box: $("rightVideoBox")
+        };
+    }
+
+
+    return null;
 }
 
 
 function playActionVideo(type) {
 
-    const isComing =
-        type === "coming";
+    const current =
+        getVideoConfig(type);
 
 
-    const video =
-        isComing
-            ? comingVideo
-            : notComingVideo;
-
-
-    const box =
-        $(
-            isComing
-                ? "leftVideoBox"
-                : "rightVideoBox"
-        );
-
-
-    const otherVideo =
-        isComing
-            ? notComingVideo
-            : comingVideo;
-
-
-    const otherBox =
-        $(
-            isComing
-                ? "rightVideoBox"
-                : "leftVideoBox"
-        );
-
-
-    if (!video || !box) {
+    if (
+        !current ||
+        !current.video ||
+        !current.box
+    ) {
         return;
     }
 
 
-    if (otherVideo) {
+    /*
+     * Önce her videoyu durdur
+     * ve gizle.
+     *
+     * Aynı kutuyu paylaşan
+     * "coming" ve "payment"
+     * videoları üst üste
+     * binmesin diye.
+     */
 
-        otherVideo.pause();
+    [
+        comingVideo,
+        notComingVideo,
+        paymentVideo
+    ].forEach(
+        v => {
 
-        otherVideo.currentTime = 0;
-    }
+            if (v) {
+
+                v.pause();
+
+                v.currentTime = 0;
+
+                v.classList.add(
+                    "hidden"
+                );
+            }
+        }
+    );
 
 
-    if (otherBox) {
+    const leftBox =
+        $("leftVideoBox");
 
-        otherBox.classList.remove(
+
+    const rightBox =
+        $("rightVideoBox");
+
+
+    if (leftBox) {
+
+        leftBox.classList.remove(
             "video-active"
         );
     }
 
 
-    video.pause();
+    if (rightBox) {
 
-    video.currentTime = 0;
+        rightBox.classList.remove(
+            "video-active"
+        );
+    }
 
 
-    box.classList.remove(
-        "video-active"
+    /*
+     * Şimdi sadece oynatılacak
+     * videoyu göster.
+     */
+
+    current.video.classList.remove(
+        "hidden"
     );
 
 
-    void box.offsetWidth;
+    void current.box.offsetWidth;
 
 
-    box.classList.add(
+    current.box.classList.add(
         "video-active"
     );
 
 
     const playPromise =
-        video.play();
+        current.video.play();
 
 
     if (
@@ -613,37 +686,28 @@ function playActionVideo(type) {
 
 function hideVideo(type) {
 
-    const isComing =
-        type === "coming";
+    const current =
+        getVideoConfig(type);
 
 
-    const box =
-        $(
-            isComing
-                ? "leftVideoBox"
-                : "rightVideoBox"
-        );
+    if (!current) {
+        return;
+    }
 
 
-    const video =
-        isComing
-            ? comingVideo
-            : notComingVideo;
+    if (current.box) {
 
-
-    if (box) {
-
-        box.classList.remove(
+        current.box.classList.remove(
             "video-active"
         );
     }
 
 
-    if (video) {
+    if (current.video) {
 
-        video.pause();
+        current.video.pause();
 
-        video.currentTime = 0;
+        current.video.currentTime = 0;
     }
 }
 
@@ -1645,6 +1709,16 @@ function setPayment() {
 
     playerStatuses[name] =
         "Geliyorum";
+
+
+    /*
+     * Ödeme onaylanınca kendi
+     * özel videosu oynasın
+     */
+
+    playActionVideo(
+        "payment"
+    );
 
 
     playerPayments[name] =
